@@ -1,27 +1,14 @@
-import React from 'react';
-import { Text, View, Button, StyleSheet } from 'react-native';
+import { View, Text, Button } from "react-native";
+import { useRouter } from "expo-router";
 
-export default function HomeScreen() {
-  const handleNavigate = () => {
-    // Navigate to Profile or other screens
-  };
+export default function Home() {
+  const router = useRouter();
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Welcome to Home</Text>
-      <Button title="Go to Profile" onPress={handleNavigate} />
+    <View className="flex-1 bg-white justify-center items-center">
+      <Text className="text-lg font-bold">Home</Text>
+      <Button title="Profile" onPress={() => router.push("/profile")} />
+      <Button title="Add Device" onPress={() => router.push("/add-device")} />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 24,
-    marginBottom: 20,
-  },
-});

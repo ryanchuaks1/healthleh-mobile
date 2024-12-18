@@ -1,61 +1,42 @@
-import React, { useState } from 'react';
-import { Text, View, TextInput, Button, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Button } from "react-native";
+import { useRouter } from "expo-router";
+import { useSearchParams } from "expo-router/build/hooks";
 
-export default function OTPScreen() {
-  const [otp, setOtp] = useState('');
-  
-  const handleVerifyOtp = async () => {
+export default function OTP() {
+  const router = useRouter();
+  const phone  = useSearchParams();
+
+  const handleOTPVerification = async (otp: string) => {
     try {
-      const response = await fetch('https://your-api-url.com/api/verify-otp', {
-        method: 'POST',
+      const response = await fetch("https://your-api.com/verify-otp", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ otp }),
+        body: JSON.stringify({ phone, otp }),
       });
 
       const data = await response.json();
+
       if (data.success) {
-        // Navigate to Home
+        router.push("/home");
       } else {
-        // Handle error
+        alert("Invalid OTP.");
       }
     } catch (error) {
-      console.error('OTP verification failed:', error);
+      console.error(error);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Enter OTP</Text>
+    <View className="flex-1 bg-white justify-center items-center">
+      <Text className="text-lg font-bold">Verify OTP</Text>
       <TextInput
-        style={styles.input}
+        className="border rounded w-3/4 p-2 mb-4"
         placeholder="Enter OTP"
-        value={otp}
-        onChangeText={setOtp}
-        keyboardType="numeric"
+        keyboardType="number-pad"
       />
-      <Button title="Verify OTP" onPress={handleVerifyOtp} />
+      <Button title="Verify" onPress={() => handleOTPVerification("1234")} />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 24,
-    marginBottom: 20,
-  },
-  input: {
-    width: '80%',
-    padding: 10,
-    borderColor: 'gray',
-    borderWidth: 1,
-    marginBottom: 20,
-    borderRadius: 5,
-  },
-});

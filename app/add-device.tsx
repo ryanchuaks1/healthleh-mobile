@@ -1,60 +1,31 @@
-import React, { useState } from 'react';
-import { Text, View, Button, StyleSheet, TextInput } from 'react-native';
+import { View, Text, TextInput, Button } from "react-native";
 
-export default function AddDeviceScreen() {
-  const [deviceName, setDeviceName] = useState('');
-  
-  const handleAddDevice = async () => {
+export default function AddDevice() {
+  const addDevice = async (deviceName: string) => {
     try {
-      const response = await fetch('https://your-api-url.com/api/add-device', {
-        method: 'POST',
+      const response = await fetch("https://your-api.com/add-device", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ deviceName }),
       });
 
       const data = await response.json();
-      if (data.success) {
-        // Handle success, navigate to another screen or show a confirmation
-      } else {
-        // Handle error
-      }
+      console.log(data);
     } catch (error) {
-      console.error('Add device failed:', error);
+      console.error(error);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Add New Device</Text>
+    <View className="flex-1 bg-white justify-center items-center">
+      <Text className="text-lg font-bold">Add Device</Text>
       <TextInput
-        style={styles.input}
-        placeholder="Enter Device Name"
-        value={deviceName}
-        onChangeText={setDeviceName}
+        className="border rounded w-3/4 p-2 mb-4"
+        placeholder="Device Name"
       />
-      <Button title="Add Device" onPress={handleAddDevice} />
+      <Button title="Add" onPress={() => addDevice("My New Device")} />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 24,
-    marginBottom: 20,
-  },
-  input: {
-    width: '80%',
-    padding: 10,
-    borderColor: 'gray',
-    borderWidth: 1,
-    marginBottom: 20,
-    borderRadius: 5,
-  },
-});

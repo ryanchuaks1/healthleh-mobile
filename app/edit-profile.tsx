@@ -1,74 +1,35 @@
-import React, { useState } from 'react';
-import { Text, View, TextInput, Button, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Button } from "react-native";
 
-export default function EditProfileScreen() {
-  const [email, setEmail] = useState('');
-  const [height, setHeight] = useState('');
-  const [weight, setWeight] = useState('');
-
-  const handleSaveChanges = async () => {
+export default function EditProfile() {
+  const updateProfile = async (profileDetails: Record<string, string>) => {
     try {
-      const response = await fetch('https://your-api-url.com/api/edit-profile', {
-        method: 'POST',
+      const response = await fetch("https://your-api.com/edit-profile", {
+        method: "PUT",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, height, weight }),
+        body: JSON.stringify(profileDetails),
       });
 
       const data = await response.json();
-      if (data.success) {
-        // Handle success
-      } else {
-        // Handle error
-      }
+      console.log(data);
     } catch (error) {
-      console.error('Edit profile failed:', error);
+      console.error(error);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Edit Profile</Text>
+    <View className="flex-1 bg-white justify-center items-center">
+      <Text className="text-lg font-bold">Edit Profile</Text>
       <TextInput
-        style={styles.input}
-        placeholder="Enter Email"
-        value={email}
-        onChangeText={setEmail}
+        className="border rounded w-3/4 p-2 mb-4"
+        placeholder="Name"
       />
       <TextInput
-        style={styles.input}
-        placeholder="Enter Height"
-        value={height}
-        onChangeText={setHeight}
+        className="border rounded w-3/4 p-2 mb-4"
+        placeholder="Email"
       />
-      <TextInput
-        style={styles.input}
-        placeholder="Enter Weight"
-        value={weight}
-        onChangeText={setWeight}
-      />
-      <Button title="Save Changes" onPress={handleSaveChanges} />
+      <Button title="Save" onPress={() => updateProfile({ name: "John Updated", email: "john.new@example.com" })} />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 24,
-    marginBottom: 20,
-  },
-  input: {
-    width: '80%',
-    padding: 10,
-    borderColor: 'gray',
-    borderWidth: 1,
-    marginBottom: 20,
-    borderRadius: 5,
-  },
-});

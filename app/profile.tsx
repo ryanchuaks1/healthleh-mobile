@@ -1,27 +1,13 @@
-import React from 'react';
-import { Text, View, Button, StyleSheet } from 'react-native';
+import { View, Text, Button } from "react-native";
+import { useRouter } from "expo-router";
 
-export default function ProfileScreen() {
-  const handleEditProfile = () => {
-    // Navigate to edit profile page
-  };
+export default function Profile() {
+  const router = useRouter();
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>User Profile</Text>
-      <Button title="Edit Profile" onPress={handleEditProfile} />
+    <View className="flex-1 bg-white justify-center items-center">
+      <Text className="text-lg font-bold">Profile</Text>
+      <Button title="Edit Profile" onPress={() => router.push("/edit-profile")} />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 24,
-    marginBottom: 20,
-  },
-});

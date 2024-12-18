@@ -1,68 +1,49 @@
-import React, { useState } from 'react';
-import { Text, View, TextInput, Button, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Button } from "react-native";
+import { useRouter } from "expo-router";
 
-export default function SignUpScreen() {
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
+export default function Signup() {
+  const router = useRouter();
 
-  const handleSignUp = async () => {
+  const handleSignup = async (userDetails: Record<string, string>) => {
     try {
-      const response = await fetch('https://your-api-url.com/api/signup', {
-        method: 'POST',
+      const response = await fetch("https://your-api.com/signup", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, name }),
+        body: JSON.stringify(userDetails),
       });
 
       const data = await response.json();
+
       if (data.success) {
-        // Navigate to next screen (e.g., Profile)
+        router.push("/home");
       } else {
-        // Handle error
+        alert("Signup failed.");
       }
     } catch (error) {
-      console.error('Signup failed:', error);
+      console.error(error);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Sign Up</Text>
+    <View className="flex-1 bg-white justify-center items-center">
+      <Text className="text-lg font-bold">Sign Up</Text>
       <TextInput
-        style={styles.input}
-        placeholder="Enter Name"
-        value={name}
-        onChangeText={setName}
+        className="border rounded w-3/4 p-2 mb-4"
+        placeholder="Name"
       />
       <TextInput
-        style={styles.input}
-        placeholder="Enter Email"
-        value={email}
-        onChangeText={setEmail}
+        className="border rounded w-3/4 p-2 mb-4"
+        placeholder="Email"
         keyboardType="email-address"
       />
-      <Button title="Sign Up" onPress={handleSignUp} />
+      <TextInput
+        className="border rounded w-3/4 p-2 mb-4"
+        placeholder="Phone Number"
+        keyboardType="phone-pad"
+      />
+      <Button title="Sign Up" onPress={() => handleSignup({ name: "John", email: "john@example.com", phone: "12345678" })} />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 24,
-    marginBottom: 20,
-  },
-  input: {
-    width: '80%',
-    padding: 10,
-    borderColor: 'gray',
-    borderWidth: 1,
-    marginBottom: 20,
-    borderRadius: 5,
-  },
-});

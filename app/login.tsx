@@ -1,61 +1,41 @@
-import React, { useState } from 'react';
-import { Text, View, TextInput, Button, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Button } from "react-native";
+import { useRouter } from "expo-router";
 
-export default function LoginScreen() {
-  const [phoneNumber, setPhoneNumber] = useState('');
-  
-  const handleLogin = async () => {
+export default function Login() {
+  const router = useRouter();
+
+  const handleLogin = async (phoneNumber: string) => {
     try {
-      const response = await fetch('https://your-api-url.com/api/login', {
-        method: 'POST',
+      const response = await fetch("https://your-api.com/login", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ phoneNumber }),
       });
 
       const data = await response.json();
+
       if (data.success) {
-        // Navigate to OTP screen
+        router.push(`/otp?phone=${phoneNumber}`);
       } else {
-        // Handle error
+        alert("User not found. Redirecting to signup.");
+        router.push("/signup");
       }
     } catch (error) {
-      console.error('Login failed:', error);
+      console.error(error);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Login</Text>
+    <View className="flex-1 bg-white justify-center items-center">
+      <Text className="text-lg font-bold">Login</Text>
       <TextInput
-        style={styles.input}
+        className="border rounded w-3/4 p-2 mb-4"
         placeholder="Enter Phone Number"
-        value={phoneNumber}
-        onChangeText={setPhoneNumber}
         keyboardType="phone-pad"
       />
-      <Button title="Login" onPress={handleLogin} />
+      <Button title="Next" onPress={() => handleLogin("12345678")} />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 24,
-    marginBottom: 20,
-  },
-  input: {
-    width: '80%',
-    padding: 10,
-    borderColor: 'gray',
-    borderWidth: 1,
-    marginBottom: 20,
-    borderRadius: 5,
-  },
-});
