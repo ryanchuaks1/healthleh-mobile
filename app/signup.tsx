@@ -1,49 +1,79 @@
-import { View, Text, TextInput, Button } from "react-native";
-import { useRouter } from "expo-router";
+import React, { useState } from "react";
+import { View, Text, TextInput, Button, Alert } from "react-native";
+import { useRouter, useSearchParams } from "expo-router";
 
 export default function Signup() {
+  const { phoneNumber } = useSearchParams();
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [height, setHeight] = useState("");
+  const [weight, setWeight] = useState("");
+  const [weightGoal, setWeightGoal] = useState("");
   const router = useRouter();
 
-  const handleSignup = async (userDetails: Record<string, string>) => {
+  const handleSignup = async () => {
     try {
-      const response = await fetch("https://your-api.com/signup", {
+      const response = await fetch("https://your-api-url.com/api/users", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(userDetails),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phoneNumber,
+          firstName,
+          lastName,
+          height: parseFloat(height),
+          weight: parseFloat(weight),
+          weightGoal: parseFloat(weightGoal),
+        }),
       });
-
-      const data = await response.json();
-
-      if (data.success) {
+      if (response.ok) {
+        Alert.alert("Success", "User created successfully!");
         router.push("/home");
       } else {
-        alert("Signup failed.");
+        Alert.alert("Error", "Failed to create user. Please try again.");
       }
     } catch (error) {
-      console.error(error);
+      console.error("Error during signup:", error);
+      Alert.alert("Error", "An error occurred. Please try again.");
     }
   };
 
   return (
-    <View className="flex-1 bg-white justify-center items-center">
-      <Text className="text-lg font-bold">Sign Up</Text>
+    <View className="flex-1 bg-gray-100 justify-center items-center p-6">
+      <Text className="text-2xl font-bold mb-6">Signup</Text>
       <TextInput
-        className="border rounded w-3/4 p-2 mb-4"
-        placeholder="Name"
+        className="w-full bg-white p-4 rounded-md mb-4"
+        placeholder="First Name"
+        value={firstName}
+        onChangeText={setFirstName}
       />
       <TextInput
-        className="border rounded w-3/4 p-2 mb-4"
-        placeholder="Email"
-        keyboardType="email-address"
+        className="w-full bg-white p-4 rounded-md mb-4"
+        placeholder="Last Name"
+        value={lastName}
+        onChangeText={setLastName}
       />
       <TextInput
-        className="border rounded w-3/4 p-2 mb-4"
-        placeholder="Phone Number"
-        keyboardType="phone-pad"
+        className="w-full bg-white p-4 rounded-md mb-4"
+        placeholder="Height (cm)"
+        keyboardType="numeric"
+        value={height}
+        onChangeText={setHeight}
       />
-      <Button title="Sign Up" onPress={() => handleSignup({ name: "John", email: "john@example.com", phone: "12345678" })} />
+      <TextInput
+        className="w-full bg-white p-4 rounded-md mb-4"
+        placeholder="Weight (kg)"
+        keyboardType="numeric"
+        value={weight}
+        onChangeText={setWeight}
+      />
+      <TextInput
+        className="w-full bg-white p-4 rounded-md mb-4"
+        placeholder="Weight Goal (kg)"
+        keyboardType="numeric"
+        value={weightGoal}
+        onChangeText={setWeightGoal}
+      />
+      <Button title="Sign Up" onPress={handleSignup} />
     </View>
   );
 }
