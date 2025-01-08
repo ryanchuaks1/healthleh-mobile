@@ -31,10 +31,10 @@ export default function RootLayout() {
     // <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
     <ThemeProvider value={DefaultTheme}>
       <Stack>
-        <Stack.Screen name="index" options={{ headerShown: false, title: "Login" }} />
+        <Stack.Screen name="index" options={{ title: "Login", headerShown: false }} />
         <Stack.Screen name="signup" options={{ title: "Sign Up" }} />
-        <Stack.Screen name="home" options={{ headerShown: false, title: "Home" }} />
-        <Stack.Screen name="add-device" options={{ headerShown: false, title: "Add Device" }} />
+        <Stack.Screen name="home" options={{ title: "HealthLeh", headerShown: false }} />
+        <Stack.Screen name="device" options={{ headerShown: false, title: "Devices" }} />
         <Stack.Screen name="profile" options={{ headerShown: false, title: "Profile" }} />
         <Stack.Screen name="edit-profile" options={{ headerShown: false, title: "Edit Profile" }} />
       </Stack>
