@@ -34,7 +34,7 @@ export default function RootLayout() {
         <Stack.Screen name="index" options={{ title: "Login", headerShown: false }} />
         <Stack.Screen name="signup" options={{ title: "Sign Up" }} />
         <Stack.Screen name="home" options={{ title: "HealthLeh", headerShown: false }} />
-        <Stack.Screen name="device" options={{ headerShown: false, title: "Devices" }} />
+        <Stack.Screen name="device" options={{ title: "Devices" }} />
         <Stack.Screen name="profile" options={{ headerShown: false, title: "Profile" }} />
         <Stack.Screen name="edit-profile" options={{ headerShown: false, title: "Edit Profile" }} />
       </Stack>

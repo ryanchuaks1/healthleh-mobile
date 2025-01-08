@@ -83,7 +83,7 @@ export default function Login() {
       {message && <Text className="text-md text-red-500 mb-4">{message}</Text>}
       {!isOtpVisible ? (
         <>
-          <Text className="text-lg text-gray-600 mb-4">Enter your phone number to continue</Text>
+          <Text className="text-lg text-gray-600 mb-4 text-center">Enter your phone number to continue</Text>
           <TextInput
             className="w-full bg-white p-4 rounded-lg shadow-md mb-4 text-gray-800"
             placeholder="Phone Number"

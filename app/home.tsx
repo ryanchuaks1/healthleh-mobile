@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Image, Dimensions } from "react-native";
 import { useRouter } from "expo-router";
+import config from "../config.js"; // Assuming API base URL is in config.js
 
 export default function Home() {
   const [healthData, setHealthData] = useState({
@@ -10,29 +11,38 @@ export default function Home() {
   }); // Mock health data
   const [steps, setSteps] = useState(5000); // Mock steps
   const [lastActivity, setLastActivity] = useState("Walked 2 km"); // Mock activity
-  const [devices, setDevices] = useState([
-    { id: 1, name: "Fitbit", status: "Active" },
-    { id: 2, name: "Smartwatch", status: "Inactive" },
-  ]); // Mock devices
+  const [devices, setDevices] = useState<{ id: string; name: string; status: string }[]>([]);
   const [loading, setLoading] = useState(false);
+  const { width } = Dimensions.get("window");
+  const userPhoneNumber = "81228470"; // Replace with the logged-in user's phone number
 
   const router = useRouter();
 
   useEffect(() => {
-    // Placeholder for fetching data
-    const fetchData = async () => {
+    const fetchDevices = async () => {
       setLoading(true);
       try {
-        // Mock delay for fetching data
-        setTimeout(() => {
-          setLoading(false);
-        }, 1000);
+        const response = await fetch(`${config.API_BASE_URL}/api/devices/${userPhoneNumber}`);
+        if (response.ok) {
+          const fetchedDevices = await response.json();
+          setDevices(
+            fetchedDevices.map((device: { deviceId: any; deviceName: any; mode: string; }) => ({
+              id: device.deviceId,
+              name: device.deviceName,
+              status: device.mode === "Input" ? "Active" : "Inactive",
+            }))
+          );
+        } else {
+          console.error("Failed to fetch devices.");
+        }
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("Error fetching devices:", error);
+      } finally {
         setLoading(false);
       }
     };
-    fetchData();
+
+    fetchDevices();
   }, []);
 
   return (
@@ -42,11 +52,27 @@ export default function Home() {
       ) : (
         <>
           {/* Profile Section */}
-          <View className="bg-white rounded-lg shadow-md p-4 mb-6">
-            <Text className="text-xl font-bold text-orange-800">Profile</Text>
-            <Text className="text-md text-gray-600 mt-2">Height: {healthData.height}</Text>
-            <Text className="text-md text-gray-600">Weight: {healthData.weight}</Text>
-            <Text className="text-md text-gray-600">Weight Goal: {healthData.weightGoal}</Text>
+          <View className="mb-6">
+            <Text className="text-3xl font-bold text-orange-800 text-center">Profile</Text>
+            <View className="flex flex-row items-center justify-between mt-4">
+              <View className="flex flex-col flex-1 items-center">
+                <Text className="text-md md:text-xl text-orange-800">Current:</Text>
+                <Text className="text-md md:text-xl text-gray-600">{healthData.height}</Text>
+                <Text className="text-md md:text-xl text-gray-600">{healthData.weight}</Text>
+              </View>
+              <Image
+                source={require("../assets/images/run.png")}
+                style={{
+                  height: width * 0.5,
+                  width: width * 0.5,
+                  resizeMode: "contain",
+                }}
+              />
+              <View className="flex flex-col flex-1 items-center">
+                <Text className="text-md md:text-xl text-orange-800">Goal</Text>
+                <Text className="text-md md:text-xl text-gray-600">{healthData.weightGoal}</Text>
+              </View>
+            </View>
           </View>
 
           {/* Cards Section */}
@@ -71,14 +97,18 @@ export default function Home() {
           {/* Device Section */}
           <View>
             <Text className="text-xl font-bold text-orange-800 mb-4">Connected Devices</Text>
-            {devices.map((device) => (
-              <View key={device.id} className="bg-white rounded-lg shadow-md p-4 mb-4">
-                <Text className="text-lg font-bold text-gray-800">{device.name}</Text>
-                <Text className="text-md text-gray-600">Status: {device.status}</Text>
-              </View>
-            ))}
+            {devices.length > 0 ? (
+              devices.map((device) => (
+                <View key={device.id} className="bg-white rounded-lg shadow-md p-4 mb-4">
+                  <Text className="text-lg font-bold text-gray-800">{device.name}</Text>
+                  <Text className="text-md text-gray-600">Status: {device.status}</Text>
+                </View>
+              ))
+            ) : (
+              <Text className="text-md text-gray-600">No devices connected.</Text>
+            )}
             <TouchableOpacity className="w-full bg-orange-800 p-4 rounded-lg shadow-md mt-4" onPress={() => router.push("/device")}>
-              <Text className="text-center text-white font-bold">Add New Device</Text>
+              <Text className="text-center text-white font-bold">Manage Devices</Text>
             </TouchableOpacity>
           </View>
         </>
