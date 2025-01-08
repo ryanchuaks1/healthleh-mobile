@@ -1,12 +1,12 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
+import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
+import { useFonts } from "expo-font";
+import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
+import "react-native-reanimated";
 import "../global.css";
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { useColorScheme } from "@/hooks/useColorScheme";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -14,7 +14,7 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
   useEffect(() => {
@@ -30,14 +30,13 @@ export default function RootLayout() {
   return (
     // <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
     <ThemeProvider value={DefaultTheme}>
-     <Stack>
-        <Stack.Screen name="index" options={{ title: 'Login' }} />
-        <Stack.Screen name="otp" options={{ title: 'OTP' }} />
-        <Stack.Screen name="signup" options={{ title: 'Sign Up' }} />
-        <Stack.Screen name="home" options={{ title: 'Home' }} />
-        <Stack.Screen name="add-device" options={{ title: 'Add Device' }} />
-        <Stack.Screen name="profile" options={{ title: 'Profile' }} />
-        <Stack.Screen name="edit-profile" options={{ title: 'Edit Profile' }} />
+      <Stack>
+        <Stack.Screen name="index" options={{ headerShown: false, title: "Login" }} />
+        <Stack.Screen name="signup" options={{ title: "Sign Up" }} />
+        <Stack.Screen name="home" options={{ headerShown: false, title: "Home" }} />
+        <Stack.Screen name="add-device" options={{ headerShown: false, title: "Add Device" }} />
+        <Stack.Screen name="profile" options={{ headerShown: false, title: "Profile" }} />
+        <Stack.Screen name="edit-profile" options={{ headerShown: false, title: "Edit Profile" }} />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
