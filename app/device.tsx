@@ -25,7 +25,7 @@ export default function DeviceManagement() {
 
   const displayMessage = (text: string) => {
     setMessage(text);
-    setTimeout(() => setMessage(""), 3000);
+    setTimeout(() => setMessage(""), 10000);
   };
 
   const fetchDevices = async () => {
