@@ -26,10 +26,10 @@ export default function Home() {
         if (response.ok) {
           const fetchedDevices = await response.json();
           setDevices(
-            fetchedDevices.map((device: { deviceId: any; deviceName: any; mode: string; }) => ({
-              id: device.deviceId,
-              name: device.deviceName,
-              status: device.mode === "Input" ? "Active" : "Inactive",
+            fetchedDevices.map((device: { DeviceId: string; DeviceName: string; Mode: string }) => ({
+              id: device.DeviceId || `device-${Math.random()}`,
+              name: device.DeviceName || "Unnamed Device",
+              status: device.Mode === "Input" ? "Active" : "Inactive",
             }))
           );
         } else {

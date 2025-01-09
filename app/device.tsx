@@ -11,34 +11,20 @@ export default function DeviceManagement() {
   }
 
   const [devices, setDevices] = useState<Device[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [nearbyDevices, setNearbyDevices] = useState<Device[]>([]);
+  const [mockNearbyDevices] = useState<Device[]>([
+    { deviceId: "12345", deviceName: "Mock Watch", mode: "Input" },
+    { deviceId: "54321", deviceName: "Mock Light", mode: "Output" },
+  ]);
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [newDeviceName, setNewDeviceName] = useState("");
   const [modalVisible, setModalVisible] = useState(false);
   const [message, setMessage] = useState(""); // On-screen message state
+  const [loading, setLoading] = useState(false);
   const userPhoneNumber = "81228470"; // Replace with logged-in user's phone number
-
-  let manager: any;
-
-  useEffect(() => {
-    if (Platform.OS !== "web") {
-      const { BleManager } = require("react-native-ble-plx");
-      manager = new BleManager();
-    }
-
-    fetchDevices();
-
-    return () => {
-      if (manager) {
-        manager.destroy();
-      }
-    };
-  }, []);
 
   const displayMessage = (text: string) => {
     setMessage(text);
-    setTimeout(() => setMessage(""), 10000);
+    setTimeout(() => setMessage(""), 5000);
   };
 
   const fetchDevices = async () => {
@@ -47,7 +33,13 @@ export default function DeviceManagement() {
       const response = await fetch(`${config.API_BASE_URL}/api/devices/${userPhoneNumber}`);
       if (response.ok) {
         const fetchedDevices = await response.json();
-        setDevices(fetchedDevices);
+        const camelCaseDevices = fetchedDevices.map((device: { DeviceId: any; DeviceName: any; Mode: any }) => ({
+          deviceId: device.DeviceId,
+          deviceName: device.DeviceName,
+          mode: device.Mode,
+        }));
+
+        setDevices(camelCaseDevices);
       } else {
         displayMessage("Failed to fetch devices.");
       }
@@ -105,65 +97,48 @@ export default function DeviceManagement() {
     }
   };
 
-  const scanForDevices = async () => {
-    if (Platform.OS === "web") {
-      // Mock devices for web
-      const mockNearbyDevices = [
-        { deviceId: "12345", deviceName: "Mock Watch", mode: "Input" },
-        { deviceId: "54321", deviceName: "Mock Light", mode: "Output" },
-      ];
-      setNearbyDevices(mockNearbyDevices);
-      setModalVisible(true);
-      return;
-    }
-
-    if (Platform.OS === "android") {
-      const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION, {
-        title: "Location Permission Required",
-        message: "Bluetooth scanning requires location permission.",
-        buttonNeutral: "Ask Me Later",
-        buttonNegative: "Cancel",
-        buttonPositive: "OK",
-      });
-      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-        displayMessage("Location permission is required for scanning.");
-        return;
-      }
-    }
-
-    if (!manager) {
-      displayMessage("Bluetooth manager is not initialized.");
+  const addDevice = async () => {
+    if (!selectedDevice || !newDeviceName) {
+      displayMessage("Please select a device and provide a name.");
       return;
     }
 
     setLoading(true);
+    try {
+      const response = await fetch(`${config.API_BASE_URL}/api/devices`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          deviceName: newDeviceName,
+          phoneNumber: userPhoneNumber,
+          deviceType: "Unknown", // Replace with actual type if available
+          connectionString: selectedDevice.deviceId, // Replace with the actual connection string for the device
+          mode: "Input",
+        }),
+      });
 
-    const foundDevices: Device[] = [];
-    manager.startDeviceScan(null, null, (error: { message: string }, device: { id: string; name: string }) => {
-      if (error) {
-        console.error("Error scanning for devices:", error.message);
-        displayMessage("Failed to scan for devices.");
-        manager.stopDeviceScan();
-        setLoading(false);
-        return;
+      if (response.ok) {
+        await fetchDevices(); // Refresh devices list
+        setModalVisible(false);
+        setSelectedDevice(null);
+        setNewDeviceName("");
+        displayMessage("Device added successfully!");
+      } else {
+        displayMessage("Failed to add device.");
       }
-
-      if (device?.id && device?.name) {
-        foundDevices.push({ deviceId: device.id, deviceName: device.name, mode: "Unknown" });
-      }
-    });
-
-    setTimeout(() => {
-      manager.stopDeviceScan();
-      const mockNearbyDevices = [
-        { deviceId: "12345", deviceName: "Mock Watch", mode: "Input" },
-        { deviceId: "54321", deviceName: "Mock Light", mode: "Output" },
-      ];
-      setNearbyDevices([...foundDevices, ...mockNearbyDevices]);
-      setModalVisible(true);
+    } catch (error) {
+      console.error("Error adding device:", error);
+      displayMessage("Failed to add device.");
+    } finally {
       setLoading(false);
-    }, 5000);
+    }
   };
+
+  useEffect(() => {
+    fetchDevices();
+  }, []);
 
   return (
     <ScrollView className="flex-1 bg-gray-100 p-6">
@@ -171,9 +146,9 @@ export default function DeviceManagement() {
       {message && <Text className="text-center text-red-500 mb-4">{message}</Text>}
       {loading && <ActivityIndicator size="large" color="#4CAF50" />}
       {!loading &&
-        devices.map((device) => (
-          <View key={device.deviceId} className="bg-white rounded-lg shadow-md p-4 mb-4">
-            <Text className="text-lg font-bold text-gray-800">{device.deviceName}</Text>
+        devices.map((device, index) => (
+          <View key={device.deviceId || `device-${index}`} className="bg-white rounded-lg shadow-md p-4 mb-4">
+            <Text className="text-lg font-bold text-gray-800">{device.deviceName || "Unnamed Device"}</Text>
             <Text className="text-md text-gray-600 mb-2">Current Mode: {device.mode}</Text>
             <View className="flex-row justify-between">
               <TouchableOpacity
@@ -204,8 +179,8 @@ export default function DeviceManagement() {
           </View>
         ))}
 
-      <TouchableOpacity className="w-full bg-orange-800 p-4 rounded-lg shadow-md mt-4" onPress={scanForDevices}>
-        <Text className="text-center text-white font-bold">Add New Device</Text>
+      <TouchableOpacity className="w-full bg-orange-800 p-4 rounded-lg shadow-md mt-4" onPress={() => setModalVisible(true)}>
+        <Text className="text-center text-white font-bold">Add Mock Device</Text>
       </TouchableOpacity>
       <TouchableOpacity className="w-full bg-slate-500 p-4 rounded-lg shadow-md mt-4" onPress={() => router.push("/home")}>
         <Text className="text-center text-white font-bold">Back to home</Text>
@@ -215,10 +190,10 @@ export default function DeviceManagement() {
       <Modal visible={modalVisible} transparent animationType="slide">
         <View className="flex-1 justify-center items-center bg-gray-900 bg-opacity-75 p-6">
           <View className="bg-white rounded-lg p-6 w-full">
-            <Text className="text-xl font-bold text-gray-800 mb-4">Add New Device</Text>
-            {nearbyDevices.map((device) => (
+            <Text className="text-xl font-bold text-gray-800 mb-4">Add New Mock Device</Text>
+            {mockNearbyDevices.map((device, index) => (
               <TouchableOpacity
-                key={device.deviceId}
+                key={device.deviceId || `nearby-device-${index}`}
                 className={`p-3 rounded-lg shadow-md mb-2 ${selectedDevice?.deviceId === device.deviceId ? "bg-orange-400" : "bg-gray-200"}`}
                 onPress={() => setSelectedDevice(device)}
               >
@@ -232,7 +207,10 @@ export default function DeviceManagement() {
               onChangeText={setNewDeviceName}
             />
             <View className="flex-row justify-between mt-4">
-              <TouchableOpacity className="bg-orange-400 p-4 rounded-lg flex-1 mr-2" onPress={() => setModalVisible(false)}>
+              <TouchableOpacity className="bg-orange-400 p-4 rounded-lg flex-1 mr-2" onPress={addDevice}>
+                <Text className="text-center text-white font-bold">Add Device</Text>
+              </TouchableOpacity>
+              <TouchableOpacity className="bg-gray-400 p-4 rounded-lg flex-1 ml-2" onPress={() => setModalVisible(false)}>
                 <Text className="text-center text-white font-bold">Cancel</Text>
               </TouchableOpacity>
             </View>
