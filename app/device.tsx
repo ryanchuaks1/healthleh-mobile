@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, TextInput, Modal } from "react-native";
-import config from "../config.js"; // Assuming API base URL is in config.js
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, TextInput, Modal, Platform, PermissionsAndroid } from "react-native";
+import config from "../config.js";
 import { router } from "expo-router";
 
 export default function DeviceManagement() {
@@ -19,8 +19,21 @@ export default function DeviceManagement() {
   const [message, setMessage] = useState(""); // On-screen message state
   const userPhoneNumber = "81228470"; // Replace with logged-in user's phone number
 
+  let manager: any;
+
   useEffect(() => {
+    if (Platform.OS !== "web") {
+      const { BleManager } = require("react-native-ble-plx");
+      manager = new BleManager();
+    }
+
     fetchDevices();
+
+    return () => {
+      if (manager) {
+        manager.destroy();
+      }
+    };
   }, []);
 
   const displayMessage = (text: string) => {
@@ -93,56 +106,63 @@ export default function DeviceManagement() {
   };
 
   const scanForDevices = async () => {
-    setLoading(true);
-    // Mock Bluetooth scan (Replace with actual Bluetooth integration)
-    setTimeout(() => {
+    if (Platform.OS === "web") {
+      // Mock devices for web
       const mockNearbyDevices = [
         { deviceId: "12345", deviceName: "Mock Watch", mode: "Input" },
         { deviceId: "54321", deviceName: "Mock Light", mode: "Output" },
       ];
       setNearbyDevices(mockNearbyDevices);
       setModalVisible(true);
-      setLoading(false);
-    }, 2000);
-  };
+      return;
+    }
 
-  const addDevice = async () => {
-    if (!selectedDevice || !newDeviceName) {
-      displayMessage("Please select a device and provide a name.");
+    if (Platform.OS === "android") {
+      const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION, {
+        title: "Location Permission Required",
+        message: "Bluetooth scanning requires location permission.",
+        buttonNeutral: "Ask Me Later",
+        buttonNegative: "Cancel",
+        buttonPositive: "OK",
+      });
+      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+        displayMessage("Location permission is required for scanning.");
+        return;
+      }
+    }
+
+    if (!manager) {
+      displayMessage("Bluetooth manager is not initialized.");
       return;
     }
 
     setLoading(true);
-    try {
-      const response = await fetch(`${config.API_BASE_URL}/api/devices`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          deviceName: newDeviceName,
-          phoneNumber: userPhoneNumber,
-          deviceType: "Unknown", // Replace with actual type if available
-          bluetoothId: selectedDevice.deviceId,
-          mode: "Input",
-        }),
-      });
 
-      if (response.ok) {
-        fetchDevices(); // Refresh devices list
-        setModalVisible(false);
-        setSelectedDevice(null);
-        setNewDeviceName("");
-        displayMessage("Device added successfully!");
-      } else {
-        displayMessage("Failed to add device.");
+    const foundDevices: Device[] = [];
+    manager.startDeviceScan(null, null, (error: { message: string }, device: { id: string; name: string }) => {
+      if (error) {
+        console.error("Error scanning for devices:", error.message);
+        displayMessage("Failed to scan for devices.");
+        manager.stopDeviceScan();
+        setLoading(false);
+        return;
       }
-    } catch (error) {
-      console.error("Error adding device:", error);
-      displayMessage("Failed to add device.");
-    } finally {
+
+      if (device?.id && device?.name) {
+        foundDevices.push({ deviceId: device.id, deviceName: device.name, mode: "Unknown" });
+      }
+    });
+
+    setTimeout(() => {
+      manager.stopDeviceScan();
+      const mockNearbyDevices = [
+        { deviceId: "12345", deviceName: "Mock Watch", mode: "Input" },
+        { deviceId: "54321", deviceName: "Mock Light", mode: "Output" },
+      ];
+      setNearbyDevices([...foundDevices, ...mockNearbyDevices]);
+      setModalVisible(true);
       setLoading(false);
-    }
+    }, 5000);
   };
 
   return (
@@ -184,13 +204,11 @@ export default function DeviceManagement() {
           </View>
         ))}
 
-      {/* Add Device Button */}
       <TouchableOpacity className="w-full bg-orange-800 p-4 rounded-lg shadow-md mt-4" onPress={scanForDevices}>
         <Text className="text-center text-white font-bold">Add New Device</Text>
       </TouchableOpacity>
-      {/* Back to home button */}
-      <TouchableOpacity className="w-full bg-blue-500 p-4 rounded-lg shadow-md mt-4" onPress={() => router.push("/home")}>
-        <Text className="text-center text-white font-bold">Back to Home</Text>
+      <TouchableOpacity className="w-full bg-slate-500 p-4 rounded-lg shadow-md mt-4" onPress={() => router.push("/home")}>
+        <Text className="text-center text-white font-bold">Back to home</Text>
       </TouchableOpacity>
 
       {/* Add Device Modal */}
@@ -214,10 +232,7 @@ export default function DeviceManagement() {
               onChangeText={setNewDeviceName}
             />
             <View className="flex-row justify-between mt-4">
-              <TouchableOpacity className="bg-orange-400 p-4 rounded-lg flex-1 mr-2" onPress={addDevice}>
-                <Text className="text-center text-white font-bold">Add Device</Text>
-              </TouchableOpacity>
-              <TouchableOpacity className="bg-gray-400 p-4 rounded-lg flex-1 ml-2" onPress={() => setModalVisible(false)}>
+              <TouchableOpacity className="bg-orange-400 p-4 rounded-lg flex-1 mr-2" onPress={() => setModalVisible(false)}>
                 <Text className="text-center text-white font-bold">Cancel</Text>
               </TouchableOpacity>
             </View>
