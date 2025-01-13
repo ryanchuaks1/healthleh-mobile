@@ -30,16 +30,20 @@ export default function DeviceManagement() {
   const fetchDevices = async () => {
     setLoading(true);
     try {
+      console.log("API_BASE_URL:", `${config.API_BASE_URL}/api/devices/${userPhoneNumber}`);
       const response = await fetch(`${config.API_BASE_URL}/api/devices/${userPhoneNumber}`);
       if (response.ok) {
         const fetchedDevices = await response.json();
-        const camelCaseDevices = fetchedDevices.map((device: { DeviceId: any; DeviceName: any; Mode: any }) => ({
-          deviceId: device.DeviceId,
-          deviceName: device.DeviceName,
-          mode: device.Mode,
-        }));
-
-        setDevices(camelCaseDevices);
+        if (fetchedDevices.length === 0) {
+          displayMessage("No devices found.");
+        } else {
+          const camelCaseDevices = fetchedDevices.map((device: { DeviceId: any; DeviceName: any; Mode: any }) => ({
+            deviceId: device.DeviceId,
+            deviceName: device.DeviceName,
+            mode: device.Mode,
+          }));
+          setDevices(camelCaseDevices);
+        }
       } else {
         displayMessage("Failed to fetch devices.");
       }
@@ -114,7 +118,7 @@ export default function DeviceManagement() {
           deviceName: newDeviceName,
           phoneNumber: userPhoneNumber,
           deviceType: "Unknown", // Replace with actual type if available
-          connectionString: selectedDevice.deviceId, // Replace with the actual connection string for the device
+          deviceId: Date.now(), // Generate a unique device ID replace with actualy bluetooth device ID when available
           mode: "Input",
         }),
       });
