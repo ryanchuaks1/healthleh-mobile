@@ -11,7 +11,7 @@ export default function Login() {
   const [message, setMessage] = useState(""); // Feedback message state
   const router = useRouter();
   const { width } = Dimensions.get("window");
-  const imageSize = width * 0.7;
+  const imageSize = Math.min(width * 0.7, 400);
 
   const handleSendOtp = () => {
     if (!phoneNumber || phoneNumber.length !== 8 || isNaN(Number(phoneNumber))) {
