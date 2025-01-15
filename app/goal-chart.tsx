@@ -1,64 +1,158 @@
-import React from "react";
-import { View, Text, Dimensions, ScrollView, TouchableOpacity } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, Text, Dimensions, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from "react-native";
+import { Picker } from "@react-native-picker/picker";
 import { LineChart } from "react-native-chart-kit";
 import { useRouter } from "expo-router";
+import config from "../config.js";
 
-const GoalChartScreen: React.FC = () => {
+export default function GoalChartScreen() {
   const router = useRouter();
+  const [goals, setGoals] = useState<{ id: string; GoalType: string; Goal: string }[]>([]);
+  const [newGoalType, setNewGoalType] = useState("Weight"); // Default dropdown selection
+  const [customGoalType, setCustomGoalType] = useState("");
+  const [isCustomGoal, setIsCustomGoal] = useState(false);
+  const [newGoal, setNewGoal] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
+  const userPhoneNumber = "81228470"; // Replace with the actual user phone number
 
-  // Mock data for progress over time
-  const goalData = {
-    labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
-    datasets: [
-      {
-        data: [75, 74, 73, 72, 71, 70], // Example weights or goals achieved
-        color: () => `rgba(255, 165, 0, 1)`, // Line color
-        strokeWidth: 2, // Line thickness
-      },
-    ],
+  const displayMessage = (text: string) => {
+    setMessage(text);
+    setTimeout(() => setMessage(""), 5000);
   };
+
+  const fetchGoals = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${config.API_BASE_URL}/api/goals/${userPhoneNumber}`);
+      if (response.ok) {
+        const fetchedGoals = await response.json();
+        setGoals(fetchedGoals);
+        console.log("Fetched goals:", fetchedGoals);
+      } else {
+        displayMessage("Failed to fetch goals.");
+      }
+    } catch (error) {
+      console.error("Error fetching goals:", error);
+      displayMessage("Failed to fetch goals.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addGoal = async () => {
+    const goalTypeToSend = isCustomGoal ? customGoalType : newGoalType;
+
+    if (!goalTypeToSend || !newGoal) {
+      displayMessage("Please provide both goal type and goal.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch(`${config.API_BASE_URL}/api/goals`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          phoneNumber: userPhoneNumber,
+          goalType: goalTypeToSend,
+          goal: newGoal,
+        }),
+      });
+
+      if (response.ok) {
+        displayMessage("Goal added successfully!");
+        setCustomGoalType("");
+        setNewGoal("");
+        setIsCustomGoal(false);
+        await fetchGoals(); // Refresh the goals list
+      } else {
+        displayMessage("Failed to add goal.");
+      }
+    } catch (error) {
+      console.error("Error adding goal:", error);
+      displayMessage("Failed to add goal.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchGoals();
+  }, []);
 
   const screenWidth = Dimensions.get("window").width;
 
   return (
     <ScrollView className="flex-1 bg-gray-100 p-6">
-      <TouchableOpacity className="bg-orange-800 p-4 rounded-lg shadow-md mb-6" onPress={() => router.push("/goal-chart")}>
-        <View className="flex flex-row justify-between items-center">
-          <Text className="text-white text-lg font-bold">Current</Text>
-          <Text className="text-white text-lg">70 kg</Text> {/* Mock data */}
-        </View>
-        <View className="flex flex-row justify-between items-center mt-2">
-          <Text className="text-white text-lg font-bold">Goal</Text>
-          <Text className="text-white text-lg">65 kg</Text> {/* Mock data */}
-        </View>
-      </TouchableOpacity>
+      <Text className="text-3xl font-bold text-orange-800 text-center mb-6">Your Goals</Text>
+      {message && <Text className="text-center text-red-500 mb-4">{message}</Text>}
 
-      <Text className="text-3xl font-bold text-orange-800 text-center mb-6">Goal Progress</Text>
-      <LineChart
-        data={goalData}
-        width={screenWidth - 32} // Full width with padding
-        height={220}
-        chartConfig={{
-          backgroundGradientFrom: "#fff",
-          backgroundGradientTo: "#fff",
-          color: (opacity = 1) => `rgba(255, 165, 0, ${opacity})`,
-          labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-          propsForDots: {
-            r: "6",
-            strokeWidth: "2",
-            stroke: "#ffa500",
-          },
-        }}
-        style={{
-          marginVertical: 8,
-          borderRadius: 16,
-        }}
-      />
+      {goals.length > 0 ? (
+        goals.map((goal, index) => (
+          <View key={goal.id || `goal-${index}`} className="bg-white rounded-lg shadow-md p-4 mb-4">
+            <Text className="text-lg font-bold text-gray-800">{goal.GoalType}</Text>
+            <Text className="text-md text-gray-600">{goal.Goal}</Text>
+          </View>
+        ))
+      ) : (
+        <View className="bg-white p-4 rounded-lg shadow-md mb-6 items-center justify-center">
+          <Text className="text-md font-semibold text-gray-600">
+            {loading ? <ActivityIndicator size="large" color="#4CAF50" /> : `No goals found. Set your first goal below!`}
+          </Text>
+        </View>
+      )}
+
+      <View className="bg-white p-4 rounded-lg shadow-md mb-6">
+        {!isCustomGoal ? (
+          <Picker selectedValue={newGoalType} onValueChange={(itemValue) => setNewGoalType(itemValue)} style={{ height: 50, marginBottom: 20 }}>
+            <Picker.Item label="Weight" value="Weight" />
+            <Picker.Item label="Steps" value="Steps" />
+            <Picker.Item label="Calories" value="Calories" />
+            <Picker.Item label="Custom" value="Custom" />
+          </Picker>
+        ) : (
+          <TextInput
+            className="w-full bg-gray-100 p-4 rounded-lg mb-4"
+            placeholder="Enter Custom Goal Type"
+            value={customGoalType}
+            onChangeText={setCustomGoalType}
+          />
+        )}
+
+        <TextInput className="w-full bg-gray-100 p-4 rounded-lg mb-4" placeholder="Enter Goal" value={newGoal} onChangeText={setNewGoal} />
+
+        <TouchableOpacity
+          className="bg-orange-800 p-4 rounded-lg shadow-md mb-4"
+          onPress={() => {
+            if (newGoalType === "Custom") {
+              setIsCustomGoal(true);
+            } else {
+              addGoal();
+            }
+          }}
+        >
+          <Text className="text-center text-white font-bold">{isCustomGoal ? "Save Custom Goal" : "Add Goal"}</Text>
+        </TouchableOpacity>
+
+        {isCustomGoal && (
+          <TouchableOpacity
+            className="bg-gray-400 p-4 rounded-lg"
+            onPress={() => {
+              setIsCustomGoal(false);
+              setCustomGoalType("");
+            }}
+          >
+            <Text className="text-center text-white font-bold">Cancel Custom Goal</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       <TouchableOpacity className="w-full bg-slate-500 p-4 rounded-lg shadow-md mt-4" onPress={() => router.push("/home")}>
-        <Text className="text-center text-white font-bold">Back to home</Text>
+        <Text className="text-center text-white font-bold">Back to Home</Text>
       </TouchableOpacity>
     </ScrollView>
   );
-};
-
-export default GoalChartScreen;
+}

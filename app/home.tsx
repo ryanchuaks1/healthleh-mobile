@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ScrollView, ActivityIndicator } from "react-native";
+import { ScrollView, ActivityIndicator, View } from "react-native";
 import ProfileSection from "../components/ProfileSection";
 import ActivitySection from "../components/ActivitySection";
 import DeviceSection from "../components/DeviceSection";
@@ -26,7 +26,7 @@ export default function Home() {
         if (response.ok) {
           const fetchedDevices = await response.json();
           setDevices(
-            fetchedDevices.map((device: { DeviceId: any; DeviceName: any; Mode: string; }) => ({
+            fetchedDevices.map((device: { DeviceId: any; DeviceName: any; Mode: string }) => ({
               id: device.DeviceId || `device-${Math.random()}`,
               name: device.DeviceName || "Unnamed Device",
               status: device.Mode === "Input" ? "Active" : "Inactive",
@@ -48,12 +48,12 @@ export default function Home() {
       {loading ? (
         <ActivityIndicator size="large" color="#4CAF50" />
       ) : (
-        <>
+        <View>
           <ProfileSection healthData={healthData} />
-          <GoalBarSection currentWeight={healthData.weight} weightGoal={healthData.weightGoal} />
           <ActivitySection steps={steps} lastActivity={lastActivity} />
+          <GoalBarSection currentWeight={healthData.weight} weightGoal={healthData.weightGoal} />
           <DeviceSection devices={devices} />
-        </>
+        </View>
       )}
     </ScrollView>
   );
