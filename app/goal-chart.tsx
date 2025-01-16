@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, Dimensions, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from "react-native";
-import { Picker } from "@react-native-picker/picker";
-import { LineChart } from "react-native-chart-kit";
+import { Picker } from "@react-native-picker/picker"; // Updated import
 import { useRouter } from "expo-router";
 import config from "../config.js";
 
@@ -14,6 +13,13 @@ export default function GoalChartScreen() {
   const [newGoal, setNewGoal] = useState("");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [editMode, setEditMode] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<{
+    [x: string]: any;
+    id: string;
+    GoalType: string;
+    Goal: string;
+  } | null>(null);
   const userPhoneNumber = "81228470"; // Replace with the actual user phone number
 
   const displayMessage = (text: string) => {
@@ -79,11 +85,64 @@ export default function GoalChartScreen() {
     }
   };
 
+  const deleteGoal = async (goal: { [x: string]: any; id: string; GoalType: string; Goal: string }) => {
+    console.log("Deleting goal with ID:", goal.Id);
+    setLoading(true);
+    try {
+      const response = await fetch(`${config.API_BASE_URL}/api/goals/${goal.Id}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        displayMessage("Goal deleted successfully!");
+        await fetchGoals(); // Refresh the goals list
+      } else {
+        displayMessage("Failed to delete goal.");
+      }
+    } catch (error) {
+      console.error("Error deleting goal:", error);
+      displayMessage("Failed to delete goal.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const editGoal = async () => {
+    if (!editingGoal) return;
+
+    setLoading(true);
+    try {
+      const response = await fetch(`${config.API_BASE_URL}/api/goals/${editingGoal.Id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          phoneNumber: userPhoneNumber,
+          goalType: editingGoal.GoalType,
+          goal: editingGoal.Goal,
+        }),
+      });
+
+      if (response.ok) {
+        displayMessage("Goal updated successfully!");
+        setEditingGoal(null);
+        setEditMode(false);
+        await fetchGoals(); // Refresh the goals list
+      } else {
+        displayMessage("Failed to update goal.");
+      }
+    } catch (error) {
+      console.error("Error updating goal:", error);
+      displayMessage("Failed to update goal.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchGoals();
   }, []);
-
-  const screenWidth = Dimensions.get("window").width;
 
   return (
     <ScrollView className="flex-1 bg-gray-100 p-6">
@@ -93,8 +152,52 @@ export default function GoalChartScreen() {
       {goals.length > 0 ? (
         goals.map((goal, index) => (
           <View key={goal.id || `goal-${index}`} className="bg-white rounded-lg shadow-md p-4 mb-4">
-            <Text className="text-lg font-bold text-gray-800">{goal.GoalType}</Text>
-            <Text className="text-md text-gray-600">{goal.Goal}</Text>
+            {editMode && editingGoal?.id === goal.id ? (
+              <>
+                <TextInput
+                  className="w-full bg-gray-100 p-4 rounded-lg mb-4"
+                  value={editingGoal.GoalType}
+                  onChangeText={(text) => setEditingGoal({ ...editingGoal, GoalType: text })}
+                />
+                <TextInput
+                  className="w-full bg-gray-100 p-4 rounded-lg mb-4"
+                  value={editingGoal.Goal}
+                  onChangeText={(text) => setEditingGoal({ ...editingGoal, Goal: text })}
+                />
+                <View className="flex-row justify-between gap-4 mb-2">
+                  <TouchableOpacity
+                    className="bg-gray-400 p-3 rounded-lg flex-1"
+                    onPress={() => {
+                      setEditingGoal(null);
+                      setEditMode(false);
+                    }}
+                  >
+                    <Text className="text-center text-white font-bold">Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity className="bg-green-500 p-3 rounded-lg flex-1" onPress={editGoal}>
+                    <Text className="text-center text-white font-bold">Save Changes</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity className="bg-red-500 p-3 rounded-lg" onPress={() => deleteGoal(goal)}>
+                  <Text className="text-center text-white font-bold">Delete</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text className="text-lg font-bold text-gray-800">{goal.GoalType}</Text>
+                <Text className="text-md text-gray-600">{goal.Goal}</Text>
+                <TouchableOpacity
+                  className="bg-blue-500 p-2 rounded-lg mt-2"
+                  onPress={() => {
+                    setEditingGoal(goal);
+                    setEditMode(true);
+                  }}
+                >
+                  <Text className="text-center text-white font-bold">Edit</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         ))
       ) : (
@@ -104,7 +207,6 @@ export default function GoalChartScreen() {
           </Text>
         </View>
       )}
-
       <View className="bg-white p-4 rounded-lg shadow-md mb-6">
         {!isCustomGoal ? (
           <Picker selectedValue={newGoalType} onValueChange={(itemValue) => setNewGoalType(itemValue)} style={{ height: 50, marginBottom: 20 }}>
