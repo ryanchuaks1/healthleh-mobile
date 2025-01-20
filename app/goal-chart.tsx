@@ -15,8 +15,11 @@ export default function GoalChartScreen() {
   const [message, setMessage] = useState("");
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingGoal, setEditingGoal] = useState<{
-    [x: string]: any; id: string; GoalType: string; Goal: string 
-} | null>(null);
+    [x: string]: any;
+    id: string;
+    GoalType: string;
+    Goal: string;
+  } | null>(null);
   const userPhoneNumber = "81228470";
 
   const displayMessage = (text: string) => {
@@ -137,6 +140,12 @@ export default function GoalChartScreen() {
   };
 
   useEffect(() => {
+    if (newGoalType === "Custom") {
+      setIsCustomGoal(true);
+    }
+  }, [newGoalType]);
+
+  useEffect(() => {
     fetchGoals();
   }, []);
 
@@ -191,11 +200,7 @@ export default function GoalChartScreen() {
         <TouchableOpacity
           className="bg-orange-800 p-4 rounded-lg shadow-md mb-4"
           onPress={() => {
-            if (newGoalType === "Custom") {
-              setIsCustomGoal(true);
-            } else {
-              addGoal();
-            }
+            addGoal();
           }}
         >
           <Text className="text-center text-white font-bold">{isCustomGoal ? "Save Custom Goal" : "Add Goal"}</Text>
@@ -207,6 +212,7 @@ export default function GoalChartScreen() {
             onPress={() => {
               setIsCustomGoal(false);
               setCustomGoalType("");
+              setNewGoalType("Weight");
             }}
           >
             <Text className="text-center text-white font-bold">Cancel Custom Goal</Text>
