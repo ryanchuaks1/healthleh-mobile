@@ -2,12 +2,14 @@ import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, TextInput, Modal, Platform, PermissionsAndroid } from "react-native";
 import config from "../config.js";
 import { router } from "expo-router";
+import { BleManager, Device } from "react-native-ble-plx";
 
 export default function DeviceManagement() {
   interface Device {
     deviceId: string;
     deviceName: string;
     mode: string;
+    name?: string; // Optional name property
   }
 
   const [devices, setDevices] = useState<Device[]>([]);
@@ -22,9 +24,19 @@ export default function DeviceManagement() {
   const [loading, setLoading] = useState(false);
   const userPhoneNumber = "81228470"; // Replace with logged-in user's phone number
 
+  const bleManager = Platform.OS === "android" ? new BleManager() : null;
+  const [connectedDevice, setConnectedDevice] = useState<Device | null>(null);
+  const [sensorData, setSensorData] = useState<string | null>(null);
+
   const displayMessage = (text: string) => {
     setMessage(text);
     setTimeout(() => setMessage(""), 5000);
+  };
+
+  const requestPermissions = async () => {
+    if (Platform.OS === "android") {
+      await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
+    }
   };
 
   const fetchDevices = async () => {
@@ -140,6 +152,52 @@ export default function DeviceManagement() {
     }
   };
 
+  const scanAndConnect = async () => {
+    if (Platform.OS !== "android" || !bleManager) {
+      console.log("Bluetooth scanning is only available on Android.");
+      return;
+    }
+
+    await requestPermissions();
+
+    bleManager.startDeviceScan(null, null, async (error, device) => {
+      if (error) {
+        console.error("Bluetooth Scan Error:", error);
+        return;
+      }
+
+      if (device?.name?.includes("IoT_Device")) {
+        // Change this based on your device's name
+        console.log("Found IoT Device:", device.name);
+        bleManager.stopDeviceScan();
+
+        try {
+          const connected = await device.connect();
+          await connected.discoverAllServicesAndCharacteristics();
+          setConnectedDevice(connected as unknown as Device);
+
+          connected.monitorCharacteristicForService(
+            "service-uuid", // Replace with actual Service UUID
+            "characteristic-uuid", // Replace with actual Characteristic UUID
+            (error, characteristic) => {
+              if (error) {
+                console.error("Read Error:", error);
+                return;
+              }
+              if (characteristic?.value) {
+                const data = Buffer.from(characteristic.value, "base64").toString();
+                console.log("Received Data:", data);
+                setSensorData(data);
+              }
+            }
+          );
+        } catch (error) {
+          console.error("Connection Error:", error);
+        }
+      }
+    });
+  };
+
   useEffect(() => {
     fetchDevices();
   }, []);
@@ -149,6 +207,12 @@ export default function DeviceManagement() {
       <Text className="text-3xl font-bold text-orange-800 mb-6">Manage Devices</Text>
       {message && <Text className="text-center text-red-500 mb-4">{message}</Text>}
       {loading && <ActivityIndicator size="large" color="#4CAF50" />}
+      {connectedDevice && (
+        <View className="bg-white rounded-lg shadow-md p-4 mb-4">
+          <Text className="text-lg font-bold text-gray-800">Connected to {connectedDevice.name}</Text>
+          {sensorData && <Text className="text-md text-gray-600">Received Data: {sensorData}</Text>}
+        </View>
+      )}
       {!loading &&
         devices.map((device, index) => (
           <View key={device.deviceId || `device-${index}`} className="bg-white rounded-lg shadow-md p-4 mb-4">
@@ -183,7 +247,13 @@ export default function DeviceManagement() {
           </View>
         ))}
 
-      <TouchableOpacity className="w-full bg-orange-800 p-4 rounded-lg shadow-md mt-4" onPress={() => setModalVisible(true)}>
+      <TouchableOpacity
+        className="w-full bg-orange-800 p-4 rounded-lg shadow-md mt-4"
+        onPress={() => {
+          setModalVisible(true);
+          scanAndConnect();
+        }}
+      >
         <Text className="text-center text-white font-bold">Add Mock Device</Text>
       </TouchableOpacity>
       <TouchableOpacity className="w-full bg-slate-500 p-4 rounded-lg shadow-md mt-4" onPress={() => router.push("/home")}>
@@ -203,7 +273,7 @@ export default function DeviceManagement() {
               >
                 <Text className="text-gray-800">{device.deviceName}</Text>
               </TouchableOpacity>
-            ))}
+            ))} 
             <TextInput
               className="w-full bg-gray-100 p-4 rounded-lg shadow-md mt-4"
               placeholder="Enter Device Name"

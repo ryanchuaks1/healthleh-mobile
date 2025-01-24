@@ -1,5 +1,6 @@
 import React from "react";
-import { View, Text } from "react-native";
+import { View, Text, TouchableOpacity } from "react-native";
+import { useRouter } from "expo-router";
 
 interface ActivitySectionProps {
   steps: number;
@@ -7,9 +8,11 @@ interface ActivitySectionProps {
 }
 
 const ActivitySection: React.FC<ActivitySectionProps> = ({ steps, lastActivity }) => {
+  const router = useRouter();
+
   return (
-    <View className="mb-6">
-      <Text className="text-xl font-bold text-orange-800 mb-4">Your Activity</Text>
+    <TouchableOpacity className="mb-6" onPress={() => router.push("/activities")}>
+      <Text className="text-xl font-bold text-orange-700 mb-4">Your Activity</Text>
       <View className="flex-row justify-between mb-4">
         <View className="bg-orange-400 rounded-lg shadow-md p-4 flex-1 mr-2">
           <Text className="text-white text-lg font-bold">Steps</Text>
@@ -24,7 +27,7 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({ steps, lastActivity }
         <Text className="text-white text-lg font-bold">Calories Burned</Text>
         <Text className="text-white text-md mt-2">450 kcal</Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 
