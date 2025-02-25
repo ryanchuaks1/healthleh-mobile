@@ -31,7 +31,7 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({ healthData }) => {
         />
         <View className="flex flex-col flex-1 items-center">
           <Text className="text-md md:text-xl text-orange-800">Goal</Text>
-          <Text className="text-md md:text-xl text-gray-600">{healthData.weightGoal}</Text>
+          <Text className="text-md md:text-xl text-gray-600">{healthData.weightGoal} kg</Text>
         </View>
       </View>
     </View>

@@ -8,16 +8,60 @@ import config from "../config.js";
 
 export default function Home() {
   const [healthData, setHealthData] = useState({
-    height: "170 cm",
-    weight: "70 kg",
-    weightGoal: "65 kg",
-  }); // Mock health data
+    height: "loading...",
+    weight: "loading...",
+    weightGoal: "loading...",
+  });
   const [steps, setSteps] = useState(5000); // Mock steps
   const [lastActivity, setLastActivity] = useState("Walked 2 km"); // Mock activity
   const [devices, setDevices] = useState([]);
   const [loading, setLoading] = useState(false);
   const userPhoneNumber = "81228470"; // Replace with the logged-in user's phone number
 
+  // Fetch user health data and weight goal
+  useEffect(() => {
+    const fetchUserDataAndGoals = async () => {
+      setLoading(true);
+      try {
+        // Fetch user profile data for height and weight
+        const userResponse = await fetch(`${config.API_BASE_URL}/api/users/${userPhoneNumber}`);
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          setHealthData((prev) => ({
+            ...prev,
+            height: userData.Height ? `${userData.Height} cm` : prev.height,
+            weight: userData.Weight ? `${userData.Weight} kg` : prev.weight,
+          }));
+        } else {
+          console.error("Error fetching user data:", userResponse.status);
+        }
+
+        // Fetch goals to get the weight goal (assuming goalType "Weight")
+        const goalsResponse = await fetch(`${config.API_BASE_URL}/api/goals/${userPhoneNumber}`);
+        if (goalsResponse.ok) {
+          const goals = await goalsResponse.json();
+          // Find the goal where goalType equals "Weight"
+          const weightGoalObj = goals.find((goal: { GoalType: string }) => goal.GoalType === "Weight");
+          if (weightGoalObj) {
+            setHealthData((prev) => ({
+              ...prev,
+              weightGoal: weightGoalObj.Goal,
+            }));
+          }
+        } else {
+          console.error("Error fetching goals:", goalsResponse.status);
+        }
+      } catch (error) {
+        console.error("Error fetching user data and goals:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserDataAndGoals();
+  }, [userPhoneNumber]);
+
+  // Fetch devices for the user
   useEffect(() => {
     const fetchDevices = async () => {
       setLoading(true);
@@ -41,7 +85,7 @@ export default function Home() {
     };
 
     fetchDevices();
-  }, []);
+  }, [userPhoneNumber]);
 
   return (
     <ScrollView className="flex-1 bg-gray-100 p-6">
