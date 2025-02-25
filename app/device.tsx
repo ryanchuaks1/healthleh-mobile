@@ -2,9 +2,11 @@ import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, TextInput, Modal, Platform, PermissionsAndroid } from "react-native";
 import config from "../config.js";
 import { router } from "expo-router";
-import { BleManager, Device } from "react-native-ble-plx";
+import { BleManager } from "react-native-ble-plx";
+import { MaterialIcons } from "@expo/vector-icons";
 
 export default function DeviceManagement() {
+  // Device interface
   interface Device {
     deviceId: string;
     deviceName: string;
@@ -23,6 +25,11 @@ export default function DeviceManagement() {
   const [message, setMessage] = useState(""); // On-screen message state
   const [loading, setLoading] = useState(false);
   const userPhoneNumber = "81228470"; // Replace with logged-in user's phone number
+
+  // State for editing a device
+  const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
+  const [editedName, setEditedName] = useState("");
+  const [editedMode, setEditedMode] = useState("");
 
   const bleManager = Platform.OS === "android" ? new BleManager() : null;
   const [connectedDevice, setConnectedDevice] = useState<Device | null>(null);
@@ -67,7 +74,7 @@ export default function DeviceManagement() {
     }
   };
 
-  const handleModeChange = async (deviceId: string, newMode: string) => {
+  const handleSaveEdit = async (deviceId: string) => {
     setLoading(true);
     try {
       const response = await fetch(`${config.API_BASE_URL}/api/devices/${deviceId}`, {
@@ -75,18 +82,21 @@ export default function DeviceManagement() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ mode: newMode }),
+        body: JSON.stringify({ deviceName: editedName, mode: editedMode }),
       });
 
       if (response.ok) {
-        setDevices((prevDevices) => prevDevices.map((device) => (device.deviceId === deviceId ? { ...device, mode: newMode } : device)));
-        displayMessage(`Device mode updated to ${newMode}`);
+        setDevices((prevDevices) =>
+          prevDevices.map((device) => (device.deviceId === deviceId ? { ...device, deviceName: editedName, mode: editedMode } : device))
+        );
+        displayMessage("Device updated successfully!");
+        setEditingDeviceId(null);
       } else {
-        displayMessage("Failed to update device mode.");
+        displayMessage("Failed to update device.");
       }
     } catch (error) {
-      console.error("Error updating device mode:", error);
-      displayMessage("Failed to update device mode.");
+      console.error("Error updating device:", error);
+      displayMessage("Failed to update device.");
     } finally {
       setLoading(false);
     }
@@ -130,7 +140,7 @@ export default function DeviceManagement() {
           deviceName: newDeviceName,
           phoneNumber: userPhoneNumber,
           deviceType: "Unknown", // Replace with actual type if available
-          deviceId: Date.now(), // Generate a unique device ID replace with actualy bluetooth device ID when available
+          deviceId: Date.now(), // Generate a unique device ID; replace with actual Bluetooth device ID when available
           mode: "Input",
         }),
       });
@@ -214,38 +224,75 @@ export default function DeviceManagement() {
         </View>
       )}
       {!loading &&
-        devices.map((device, index) => (
-          <View key={device.deviceId || `device-${index}`} className="bg-white rounded-lg shadow-md p-4 mb-4">
-            <Text className="text-lg font-bold text-gray-800">{device.deviceName || "Unnamed Device"}</Text>
-            <Text className="text-md text-gray-600 mb-2">Current Mode: {device.mode}</Text>
-            <View className="flex-row justify-between">
-              <TouchableOpacity
-                className={`flex-1 bg-blue-500 p-3 rounded-lg shadow-md mr-2 ${device.mode === "Input" && "opacity-50"}`}
-                disabled={device.mode === "Input"}
-                onPress={() => handleModeChange(device.deviceId, "Input")}
-              >
-                <Text className="text-center text-white font-bold">Set to Input</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                className={`flex-1 bg-green-500 p-3 rounded-lg shadow-md mx-1 ${device.mode === "Both" && "opacity-50"}`}
-                disabled={device.mode === "Both"}
-                onPress={() => handleModeChange(device.deviceId, "Both")}
-              >
-                <Text className="text-center text-white font-bold">Set to Both</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                className={`flex-1 bg-orange-400 p-3 rounded-lg shadow-md ml-2 ${device.mode === "Output" && "opacity-50"}`}
-                disabled={device.mode === "Output"}
-                onPress={() => handleModeChange(device.deviceId, "Output")}
-              >
-                <Text className="text-center text-white font-bold">Set to Output</Text>
-              </TouchableOpacity>
+        devices.map((device, index) => {
+          const isEditing = editingDeviceId === device.deviceId;
+          return (
+            <View key={device.deviceId || `device-${index}`} className="bg-white rounded-lg shadow-md p-4 mb-4">
+              {!isEditing ? (
+                <>
+                  <View className="flex-row justify-between items-center">
+                    <Text className="text-lg font-bold text-gray-800">{device.deviceName || "Unnamed Device"}</Text>
+                    <TouchableOpacity
+                      className="bg-blue-500 p-2 rounded-lg shadow-md"
+                      onPress={() => {
+                        setEditingDeviceId(device.deviceId);
+                        setEditedName(device.deviceName);
+                        setEditedMode(device.mode);
+                      }}
+                    >
+                      <MaterialIcons name="edit" size={16} color="white" />
+                    </TouchableOpacity>
+                  </View>
+                  <Text className="text-md text-gray-600 mb-2">Current Mode: {device.mode}</Text>
+                </>
+              ) : (
+                <>
+                  <TextInput
+                    className="w-full bg-gray-100 p-4 rounded-lg shadow-md mb-2"
+                    value={editedName}
+                    onChangeText={setEditedName}
+                    placeholder="Edit Device Name"
+                  />
+                  <Text className="text-md text-gray-600 mb-2">Selected Mode: {editedMode}</Text>
+                  <View className="flex-row justify-between mb-2">
+                    <TouchableOpacity
+                      className={`flex-1 bg-blue-500 p-2 rounded-lg shadow-md mr-1 ${editedMode === "Input" && "opacity-50"}`}
+                      disabled={editedMode === "Input"}
+                      onPress={() => setEditedMode("Input")}
+                    >
+                      <Text className="text-center text-white font-bold">Input</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      className={`flex-1 bg-green-500 p-2 rounded-lg shadow-md mx-1 ${editedMode === "Both" && "opacity-50"}`}
+                      disabled={editedMode === "Both"}
+                      onPress={() => setEditedMode("Both")}
+                    >
+                      <Text className="text-center text-white font-bold">Both</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      className={`flex-1 bg-orange-400 p-2 rounded-lg shadow-md ml-1 ${editedMode === "Output" && "opacity-50"}`}
+                      disabled={editedMode === "Output"}
+                      onPress={() => setEditedMode("Output")}
+                    >
+                      <Text className="text-center text-white font-bold">Output</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View className="flex-row justify-between my-2">
+                    <TouchableOpacity className="flex-1 bg-red-500 p-3 rounded-lg shadow-md mr-1" onPress={() => setEditingDeviceId(null)}>
+                      <Text className="text-center text-white font-bold">Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity className="flex-1 bg-green-500 p-3 rounded-lg shadow-md ml-1" onPress={() => handleSaveEdit(device.deviceId)}>
+                      <Text className="text-center text-white font-bold">Save</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <TouchableOpacity className="w-full bg-red-700 p-2 rounded-lg shadow-md" onPress={() => deleteDevice(device.deviceId)}>
+                    <Text className="text-center text-white font-bold">Delete Device</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
-            <TouchableOpacity className="w-full bg-red-500 p-3 rounded-lg shadow-md mt-2" onPress={() => deleteDevice(device.deviceId)}>
-              <Text className="text-center text-white font-bold">Delete Device</Text>
-            </TouchableOpacity>
-          </View>
-        ))}
+          );
+        })}
 
       <TouchableOpacity
         className="w-full bg-orange-800 p-4 rounded-lg shadow-md mt-4"
@@ -273,7 +320,7 @@ export default function DeviceManagement() {
               >
                 <Text className="text-gray-800">{device.deviceName}</Text>
               </TouchableOpacity>
-            ))} 
+            ))}
             <TextInput
               className="w-full bg-gray-100 p-4 rounded-lg shadow-md mt-4"
               placeholder="Enter Device Name"

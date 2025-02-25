@@ -24,8 +24,8 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({ healthData }) => {
         <Image
           source={require("../assets/images/run.png")}
           style={{
-            height: width * 0.5,
-            width: width * 0.5,
+            height: Math.min(width * 0.5, 400),
+            width: Math.min(width * 0.5, 400),
             resizeMode: "contain",
           }}
         />
