@@ -13,7 +13,7 @@ interface Activity {
   intensity: number;
   rating: number;
   distanceFromHome: number;
-  exerciseDate: string; // new property for grouping
+  exerciseDate: string; // for grouping and timestamp
 }
 
 const Activities: React.FC = () => {
@@ -105,6 +105,9 @@ const Activities: React.FC = () => {
         displayMessage("Error deleting activity");
       } else {
         fetchActivities();
+        displayMessage("Exercise deleted successfully!");
+        setModalVisible(false);
+        setEditingActivity(null);
       }
     } catch (error: any) {
       displayMessage(`Error deleting activity: ${error.message}`);
@@ -113,63 +116,115 @@ const Activities: React.FC = () => {
     }
   };
 
-  // Group activities by exerciseDate
+  // Group activities by date (ignoring time)
   const groupedActivities = activities.reduce((groups: { [key: string]: Activity[] }, activity) => {
-    const date = activity.exerciseDate; // assume ISO or formatted string
-    if (!groups[date]) {
-      groups[date] = [];
+    // Extract only the date portion in YYYY-MM-DD format
+    const dateKey = new Date(activity.exerciseDate).toISOString().split("T")[0];
+    if (!groups[dateKey]) {
+      groups[dateKey] = [];
     }
-    groups[date].push(activity);
+    groups[dateKey].push(activity);
     return groups;
   }, {});
 
-  const sections = Object.keys(groupedActivities).map((date) => ({
-    title: new Date(date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
-    data: groupedActivities[date],
+  // Within each group, sort activities by exerciseDate descending
+  for (const dateKey in groupedActivities) {
+    groupedActivities[dateKey].sort((a, b) => new Date(b.exerciseDate).getTime() - new Date(a.exerciseDate).getTime());
+  }
+  // Sort the groups based on the latest activity timestamp in each group
+  const sortedDates = Object.keys(groupedActivities).sort((a, b) => {
+    const maxA = Math.max(...groupedActivities[a].map((act) => new Date(act.exerciseDate).getTime()));
+    const maxB = Math.max(...groupedActivities[b].map((act) => new Date(act.exerciseDate).getTime()));
+    return maxB - maxA;
+  });
+
+  const sections = sortedDates.map((dateKey) => ({
+    title: new Date(dateKey).toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }),
+    data: groupedActivities[dateKey],
   }));
 
   return (
     <ScrollView className="flex-1 bg-gray-100 p-6">
       <Text className="text-3xl font-bold text-orange-800 mb-4">User Exercise Logging</Text>
       {message !== "" && <Text className="text-center text-red-500 mb-4">{message}</Text>}
-      {loading && <ActivityIndicator size="large" color="#4CAF50" />}
-      <TouchableOpacity className="bg-orange-800 p-3 rounded-lg shadow-md my-1" onPress={() => setModalVisible(true)}>
+
+      {/* Add Exercise Button */}
+      <TouchableOpacity
+        className="bg-orange-800 p-3 rounded-lg shadow-md my-1"
+        onPress={() => {
+          setEditingActivity(null);
+          setModalVisible(true);
+          // Reset form fields
+          setExerciseType("");
+          setDurationMinutes("");
+          setCaloriesBurned("");
+          setIntensity("");
+          setRating("");
+          setDistanceFromHome("");
+        }}
+      >
         <Text className="text-center text-white font-bold">Add Exercise</Text>
       </TouchableOpacity>
+
+      {loading && <ActivityIndicator size="large" color="#4CAF50" />}
 
       <SectionList
         sections={sections}
         keyExtractor={(item) => item.id.toString()}
-        renderSectionHeader={({ section: { title } }) => <Text className="p-3 font-bold w-full text-center">{title}</Text>}
-        renderItem={({ item }) => (
-          <View className="border p-3 mb-2 rounded bg-orange-100 w-full">
-            <Text className="font-bold">{item.exerciseType}</Text>
-            <Text>Duration: {item.durationMinutes} mins</Text>
-            <Text>Calories: {item.caloriesBurned}</Text>
-            <Text>Intensity: {item.intensity}/10</Text>
-            <Text>Rating: {item.rating}/5</Text>
-            <View className="flex-row space-x-2 mt-2">
-              <TouchableOpacity
-                className="bg-blue-500 p-2 rounded flex-1"
-                onPress={() => {
-                  setEditingActivity(item);
-                  setModalVisible(true);
-                  setExerciseType(item.exerciseType);
-                  setDurationMinutes(item.durationMinutes.toString());
-                  setCaloriesBurned(item.caloriesBurned.toString());
-                  setIntensity(item.intensity.toString());
-                  setRating(item.rating.toString());
-                  setDistanceFromHome(item.distanceFromHome.toString());
-                }}
-              >
-                <Text className="text-white text-center">Edit</Text>
-              </TouchableOpacity>
-              <TouchableOpacity className="bg-red-500 p-2 rounded flex-1" onPress={() => handleDelete(item.id)}>
-                <Text className="text-white text-center">Delete</Text>
-              </TouchableOpacity>
-            </View>
+        renderSectionHeader={({ section: { title } }) => (
+          <View className="p-1 border-b border-gray-300 mb-2">
+            <Text className="text-center text-gray-800 text-sm font-bold">{title}</Text>
           </View>
         )}
+        renderItem={({ item }) => {
+          // Extract the time portion (e.g., "22:40") from exerciseDate
+          const time = new Date(item.exerciseDate).toLocaleTimeString("en-GB", {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+          return (
+            <TouchableOpacity
+              onPress={() => {
+                setEditingActivity(item);
+                setModalVisible(true);
+                setExerciseType(item.exerciseType);
+                setDurationMinutes(item.durationMinutes.toString());
+                setCaloriesBurned(item.caloriesBurned.toString());
+                setIntensity(item.intensity.toString());
+                setRating(item.rating.toString());
+                setDistanceFromHome(item.distanceFromHome.toString());
+              }}
+            >
+              <View className="p-2 mb-1">
+                <View className="flex-row justify-between items-center">
+                  <Text className="text-base font-semibold text-gray-800">{item.exerciseType}</Text>
+                  <Text className="text-xs text-gray-500">{time}</Text>
+                </View>
+                <View className="mt-1">
+                  <Text className="text-sm text-gray-700">
+                    Duration: <Text className="font-medium">{item.durationMinutes} mins</Text>
+                  </Text>
+                  <Text className="text-sm text-gray-700">
+                    Calories: <Text className="font-medium">{item.caloriesBurned}</Text>
+                  </Text>
+                  <Text className="text-sm text-gray-700">
+                    Intensity: <Text className="font-medium">{item.intensity}/10</Text>
+                  </Text>
+                  <Text className="text-sm text-gray-700">
+                    Rating: <Text className="font-medium">{item.rating}/5</Text>
+                  </Text>
+                  <Text className="text-sm text-gray-700">
+                    Distance: <Text className="font-medium">{item.distanceFromHome} km</Text>
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          );
+        }}
         ListEmptyComponent={() => !loading && <Text className="text-center text-gray-600">No activities found.</Text>}
       />
 
@@ -183,35 +238,79 @@ const Activities: React.FC = () => {
         }}
       >
         <View className="flex-1 justify-center items-center bg-black bg-opacity-50">
-          <View className="bg-white w-11/12 p-6 rounded-lg">
-            <Text className="text-2xl font-bold mb-4">{editingActivity ? "Edit Exercise" : "Add Exercise"}</Text>
-            <TextInput placeholder="Exercise Type" value={exerciseType} onChangeText={setExerciseType} className="border p-2 mb-2" />
-            <TextInput
-              placeholder="Duration (minutes)"
-              value={durationMinutes}
-              onChangeText={setDurationMinutes}
-              keyboardType="numeric"
-              className="border p-2 mb-2"
-            />
-            <TextInput
-              placeholder="Calories Burned"
-              value={caloriesBurned}
-              onChangeText={setCaloriesBurned}
-              keyboardType="numeric"
-              className="border p-2 mb-2"
-            />
-            <TextInput placeholder="Intensity (1-10)" value={intensity} onChangeText={setIntensity} keyboardType="numeric" className="border p-2 mb-2" />
-            <TextInput placeholder="Rating (1-5)" value={rating} onChangeText={setRating} keyboardType="numeric" className="border p-2 mb-2" />
-            <TextInput
-              placeholder="Distance From Home"
-              value={distanceFromHome}
-              onChangeText={setDistanceFromHome}
-              keyboardType="numeric"
-              className="border p-2 mb-4"
-            />
+          <View className="bg-white w-11/12 p-6 rounded-lg shadow-lg">
+            <Text className="text-2xl font-bold mb-4 text-center">{editingActivity ? "Edit Exercise" : "Add Exercise"}</Text>
+
+            <View className="mb-3">
+              <Text className="text-gray-700 mb-1">Exercise Type</Text>
+              <TextInput placeholder="Exercise Type" value={exerciseType} onChangeText={setExerciseType} className="border border-gray-300 rounded p-2" />
+            </View>
+
+            <View className="mb-3">
+              <Text className="text-gray-700 mb-1">Duration (minutes)</Text>
+              <TextInput
+                placeholder="Duration (minutes)"
+                value={durationMinutes}
+                onChangeText={setDurationMinutes}
+                keyboardType="numeric"
+                className="border border-gray-300 rounded p-2"
+              />
+            </View>
+
+            <View className="mb-3">
+              <Text className="text-gray-700 mb-1">Calories Burned</Text>
+              <TextInput
+                placeholder="Calories Burned"
+                value={caloriesBurned}
+                onChangeText={setCaloriesBurned}
+                keyboardType="numeric"
+                className="border border-gray-300 rounded p-2"
+              />
+            </View>
+
+            <View className="mb-3">
+              <Text className="text-gray-700 mb-1">Intensity (1-10)</Text>
+              <TextInput
+                placeholder="Intensity (1-10)"
+                value={intensity}
+                onChangeText={setIntensity}
+                keyboardType="numeric"
+                className="border border-gray-300 rounded p-2"
+              />
+            </View>
+
+            <View className="mb-3">
+              <Text className="text-gray-700 mb-1">Rating (1-5)</Text>
+              <TextInput
+                placeholder="Rating (1-5)"
+                value={rating}
+                onChangeText={setRating}
+                keyboardType="numeric"
+                className="border border-gray-300 rounded p-2"
+              />
+            </View>
+
+            <View className="mb-4">
+              <Text className="text-gray-700 mb-1">Distance From Home</Text>
+              <TextInput
+                placeholder="Distance From Home"
+                value={distanceFromHome}
+                onChangeText={setDistanceFromHome}
+                keyboardType="numeric"
+                className="border border-gray-300 rounded p-2"
+              />
+            </View>
+
             <TouchableOpacity className="bg-green-600 p-3 rounded mb-2" onPress={handleSubmit}>
-              <Text className="text-white text-center">{editingActivity ? "Update Exercise" : "Add Exercise"}</Text>
+              <Text className="text-white text-center font-semibold">{editingActivity ? "Update Exercise" : "Add Exercise"}</Text>
             </TouchableOpacity>
+
+            {editingActivity && (
+              <TouchableOpacity className="bg-red-600 p-3 rounded mb-2" onPress={() => handleDelete(editingActivity.id)}>
+                <Text className="text-white text-center font-semibold">Delete Exercise</Text>
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity
               className="bg-gray-400 p-3 rounded"
               onPress={() => {
@@ -219,7 +318,7 @@ const Activities: React.FC = () => {
                 setEditingActivity(null);
               }}
             >
-              <Text className="text-white text-center">Cancel</Text>
+              <Text className="text-white text-center font-semibold">Cancel</Text>
             </TouchableOpacity>
           </View>
         </View>
