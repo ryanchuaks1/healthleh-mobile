@@ -19,7 +19,7 @@ export default function Login() {
       return;
     }
     setIsOtpVisible(true);
-    setMessage("OTP Sent: Your OTP is 1234.");
+    setMessage("OTP Sent!");
   };
 
   const handleVerifyOtp = async () => {
