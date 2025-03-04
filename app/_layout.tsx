@@ -39,6 +39,8 @@ export default function RootLayout() {
         <Stack.Screen name="edit-profile" options={{ headerShown: false, title: "Edit Profile" }} />
         <Stack.Screen name="goal-chart" options={{ title: "Goal" }} />
         <Stack.Screen name="activities" options={{ title: "Activities" }} />
+        <Stack.Screen name="add-activity" options={{ title: "Add activity" }} />
+        <Stack.Screen name="edit-activity/[id]" options={{ headerShown: false, title: "Edit activity" }} />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
