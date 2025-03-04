@@ -48,9 +48,9 @@ const Activities: React.FC = () => {
     }
   };
 
-  // Group activities by date (ignoring time)
-  const groupedActivities = activities.reduce((groups: { [key: string]: Activity[] }, activity) => {
-    const dateKey = new Date(activity.exerciseDate).toISOString().split("T")[0];
+  const groupedActivities = activities.reduce((groups: { [key: number]: Activity[] }, activity) => {
+    const dateObj = new Date(activity.exerciseDate);
+    const dateKey = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate()).getTime();
     if (!groups[dateKey]) {
       groups[dateKey] = [];
     }
@@ -58,15 +58,9 @@ const Activities: React.FC = () => {
     return groups;
   }, {});
 
-  // Sort activities within each group and then the groups by date
-  for (const dateKey in groupedActivities) {
-    groupedActivities[dateKey].sort((a, b) => new Date(b.exerciseDate).getTime() - new Date(a.exerciseDate).getTime());
-  }
-  const sortedDates = Object.keys(groupedActivities).sort((a, b) => {
-    const maxA = Math.max(...groupedActivities[a].map((act) => new Date(act.exerciseDate).getTime()));
-    const maxB = Math.max(...groupedActivities[b].map((act) => new Date(act.exerciseDate).getTime()));
-    return maxB - maxA;
-  });
+  const sortedDates = Object.keys(groupedActivities)
+    .map(Number)
+    .sort((a, b) => b - a);
 
   const sections = sortedDates.map((dateKey) => ({
     title: new Date(dateKey).toLocaleDateString("en-GB", {
@@ -110,6 +104,7 @@ const Activities: React.FC = () => {
           </View>
         )}
         renderItem={({ item }) => {
+          // Display time using the device's local time
           const time = new Date(item.exerciseDate).toLocaleTimeString("en-GB", {
             hour: "2-digit",
             minute: "2-digit",

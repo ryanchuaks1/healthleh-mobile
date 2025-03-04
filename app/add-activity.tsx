@@ -39,7 +39,7 @@ const AddActivity: React.FC = () => {
         displayMessage("Exercise logged successfully!");
         // Optionally navigate back to the main page after a short delay
         setTimeout(() => {
-          router.push("/");
+          router.push("/activities");
         }, 1500);
       } else {
         displayMessage("Error logging exercise");

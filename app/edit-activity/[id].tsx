@@ -15,11 +15,8 @@ interface Activity {
   exerciseDate: string;
 }
 
-// Since only one dynamic segment exists, useLocalSearchParams might return a string.
-// We check the type and assign accordingly.
 const EditActivity: React.FC = () => {
   const params = useLocalSearchParams();
-  // Determine if params is a string or an object.
   const id: string = typeof params === "string" ? params : (params as { id: string }).id;
 
   const [activity, setActivity] = useState({
@@ -49,7 +46,6 @@ const EditActivity: React.FC = () => {
     setLoading(true);
     try {
       const response = await fetch(`${config.API_BASE_URL}/api/user-exercises/id/${id}`);
-      console.log(response);
       if (!response.ok) throw new Error("Failed to fetch activity details");
       const data: Activity = await response.json();
       setActivity({
@@ -91,6 +87,28 @@ const EditActivity: React.FC = () => {
         }, 1500);
       } else {
         displayMessage("Error updating activity.");
+      }
+    } catch (error: any) {
+      displayMessage(`Request failed: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (): Promise<void> => {
+    // Directly call the DELETE endpoint without confirmation
+    setLoading(true);
+    try {
+      const response = await fetch(`${config.API_BASE_URL}/api/user-exercises/${id}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        displayMessage("Activity deleted successfully!");
+        setTimeout(() => {
+          router.push("/activities");
+        }, 200);
+      } else {
+        displayMessage("Error deleting activity.");
       }
     } catch (error: any) {
       displayMessage(`Request failed: ${error.message}`);
@@ -175,6 +193,10 @@ const EditActivity: React.FC = () => {
 
           <TouchableOpacity className="bg-green-600 p-3 rounded mb-2" onPress={handleUpdate}>
             {loading ? <ActivityIndicator size="small" color="#fff" /> : <Text className="text-white text-center font-semibold">Update Exercise</Text>}
+          </TouchableOpacity>
+
+          <TouchableOpacity className="bg-red-600 p-3 rounded mb-2" onPress={handleDelete}>
+            <Text className="text-white text-center font-semibold">Delete Exercise</Text>
           </TouchableOpacity>
 
           <TouchableOpacity className="bg-gray-400 p-3 rounded" onPress={() => router.push("/activities")}>
