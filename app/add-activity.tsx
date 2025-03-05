@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
-import config from "../config";
-import { router } from "expo-router";
 import Slider from "@react-native-community/slider";
 import { Picker } from "@react-native-picker/picker";
+import config from "../config";
+import { router } from "expo-router";
 
 const commonExercises = [
   "Longer Distance Walking",
@@ -26,14 +26,16 @@ const commonExercises = [
 ];
 
 const AddActivity: React.FC = () => {
-  const [phoneNumber, setPhoneNumber] = useState<string>("81228470");
-  const [exerciseType, setExerciseType] = useState<string>("");
+  const [activity, setActivity] = useState({
+    phoneNumber: "81228470",
+    exerciseType: "",
+    durationMinutes: "",
+    caloriesBurned: "",
+    intensity: "1",
+    rating: "1",
+    distanceFromHome: "",
+  });
   const [selectedExercise, setSelectedExercise] = useState<string>("Other");
-  const [durationMinutes, setDurationMinutes] = useState<string>("");
-  const [caloriesBurned, setCaloriesBurned] = useState<string>("");
-  const [intensity, setIntensity] = useState<number>(1);
-  const [rating, setRating] = useState<number>(1);
-  const [distanceFromHome, setDistanceFromHome] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<string>("");
 
@@ -45,7 +47,12 @@ const AddActivity: React.FC = () => {
   // Function to calculate calories via API
   const handleCalculateCalories = async (): Promise<void> => {
     // Validate required fields before API call
-    if (exerciseType.trim() === "" || durationMinutes.trim() === "" || isNaN(parseInt(durationMinutes)) || parseInt(durationMinutes) <= 0) {
+    if (
+      activity.exerciseType.trim() === "" ||
+      activity.durationMinutes.trim() === "" ||
+      isNaN(parseInt(activity.durationMinutes)) ||
+      parseInt(activity.durationMinutes) <= 0
+    ) {
       displayMessage("Please provide a valid exercise type and duration.");
       return;
     }
@@ -56,14 +63,17 @@ const AddActivity: React.FC = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          exercise: exerciseType,
-          duration: parseInt(durationMinutes),
-          intensity: intensity,
+          exercise: activity.exerciseType,
+          duration: parseInt(activity.durationMinutes),
+          intensity: parseInt(activity.intensity),
         }),
       });
       if (response.ok) {
         const data = await response.json();
-        setCaloriesBurned(data.caloriesBurned.toString());
+        setActivity((prev) => ({
+          ...prev,
+          caloriesBurned: Math.round(data.caloriesBurned).toString(),
+        }));
         displayMessage("Calorie calculation successful!");
       } else {
         displayMessage("Error calculating calories.");
@@ -75,24 +85,28 @@ const AddActivity: React.FC = () => {
     }
   };
 
-  // Determine if fields are valid for calorie calculation
+  // Validate if required fields are available for calorie calculation
   const isValidForCalculation =
-    exerciseType.trim() !== "" && durationMinutes.trim() !== "" && !isNaN(parseInt(durationMinutes)) && parseInt(durationMinutes) > 0;
+    activity.exerciseType.trim() !== "" &&
+    activity.durationMinutes.trim() !== "" &&
+    !isNaN(parseInt(activity.durationMinutes)) &&
+    parseInt(activity.durationMinutes) > 0;
 
   const handleSubmit = async (): Promise<void> => {
     setLoading(true);
     try {
+      console.log("Activity to log:", activity);
       const response = await fetch(`${config.API_BASE_URL}/api/user-exercises`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          phoneNumber,
-          exerciseType,
-          durationMinutes: parseInt(durationMinutes),
-          caloriesBurned: parseInt(caloriesBurned),
-          intensity, // already a number
-          rating, // already a number
-          distanceFromHome: parseFloat(distanceFromHome),
+          phoneNumber: activity.phoneNumber,
+          exerciseType: activity.exerciseType,
+          durationMinutes: parseInt(activity.durationMinutes),
+          caloriesBurned: parseInt(activity.caloriesBurned),
+          intensity: parseInt(activity.intensity),
+          rating: parseInt(activity.rating),
+          distanceFromHome: parseFloat(activity.distanceFromHome),
         }),
       });
       if (response.ok) {
@@ -101,7 +115,7 @@ const AddActivity: React.FC = () => {
           router.push("/activities");
         }, 200);
       } else {
-        displayMessage("Error logging exercise");
+        displayMessage("Error logging exercise.");
       }
     } catch (error: any) {
       displayMessage(`Request failed: ${error.message}`);
@@ -123,7 +137,7 @@ const AddActivity: React.FC = () => {
           onValueChange={(itemValue) => {
             setSelectedExercise(itemValue);
             if (itemValue !== "Other") {
-              setExerciseType(itemValue);
+              setActivity((prev) => ({ ...prev, exerciseType: itemValue }));
             }
           }}
         >
@@ -138,8 +152,8 @@ const AddActivity: React.FC = () => {
         <Text className="text-gray-700 mb-1">Exercise Type (or enter custom)</Text>
         <TextInput
           placeholder="Custom Exercise Type (if not in dropdown)"
-          value={exerciseType}
-          onChangeText={setExerciseType}
+          value={activity.exerciseType}
+          onChangeText={(text) => setActivity((prev) => ({ ...prev, exerciseType: text }))}
           className="border border-gray-300 rounded p-2"
         />
       </View>
@@ -148,8 +162,8 @@ const AddActivity: React.FC = () => {
         <Text className="text-gray-700 mb-1">Duration (minutes)</Text>
         <TextInput
           placeholder="Duration (minutes)"
-          value={durationMinutes}
-          onChangeText={setDurationMinutes}
+          value={activity.durationMinutes}
+          onChangeText={(text) => setActivity((prev) => ({ ...prev, durationMinutes: text }))}
           keyboardType="numeric"
           className="border border-gray-300 rounded p-2"
         />
@@ -166,40 +180,41 @@ const AddActivity: React.FC = () => {
 
       <View className="mb-3">
         <Text className="text-gray-700 mb-1">Calories Burned</Text>
-        <TextInput
-          placeholder="Calories Burned"
-          value={caloriesBurned}
-          keyboardType="numeric"
-          className="border border-gray-300 rounded p-2 bg-gray-200"
-          editable={false}
-        />
+        <TextInput placeholder="Calories Burned" value={activity.caloriesBurned} editable={false} className="border border-gray-300 rounded p-2 bg-gray-200" />
       </View>
 
       {/* Intensity Slider */}
       <View className="mb-3">
-        <Text className="text-gray-700 mb-1">Intensity (1-10): {intensity}</Text>
+        <Text className="text-gray-700 mb-1">Intensity (1-10): {activity.intensity}</Text>
         <Slider
           minimumValue={1}
           maximumValue={10}
           step={1}
-          value={intensity}
-          onValueChange={(value) => setIntensity(value)}
+          value={parseInt(activity.intensity) || 1}
+          onValueChange={(value) => setActivity((prev) => ({ ...prev, intensity: value.toString() }))}
           style={{ width: "100%", height: 40 }}
         />
       </View>
 
       {/* Rating Slider */}
       <View className="mb-3">
-        <Text className="text-gray-700 mb-1">Rating (1-5): {rating}</Text>
-        <Slider minimumValue={1} maximumValue={5} step={1} value={rating} onValueChange={(value) => setRating(value)} style={{ width: "100%", height: 40 }} />
+        <Text className="text-gray-700 mb-1">Rating (1-5): {activity.rating}</Text>
+        <Slider
+          minimumValue={1}
+          maximumValue={5}
+          step={1}
+          value={parseInt(activity.rating) || 1}
+          onValueChange={(value) => setActivity((prev) => ({ ...prev, rating: value.toString() }))}
+          style={{ width: "100%", height: 40 }}
+        />
       </View>
 
       <View className="mb-4">
         <Text className="text-gray-700 mb-1">Distance From Home</Text>
         <TextInput
           placeholder="Distance From Home"
-          value={distanceFromHome}
-          onChangeText={setDistanceFromHome}
+          value={activity.distanceFromHome}
+          onChangeText={(text) => setActivity((prev) => ({ ...prev, distanceFromHome: text }))}
           keyboardType="numeric"
           className="border border-gray-300 rounded p-2"
         />
