@@ -5,6 +5,7 @@ import { Picker } from "@react-native-picker/picker";
 import config from "../config";
 import { router } from "expo-router";
 
+// List of common exercises with an "Other" option for custom input.
 const commonExercises = [
   "Longer Distance Walking",
   "Paced Walking",
@@ -25,6 +26,23 @@ const commonExercises = [
   "Other",
 ];
 
+// Helper functions to sanitize input.
+const sanitizeNumeric = (text: string): string => {
+  // Allow only digits.
+  return text.replace(/[^0-9]/g, "");
+};
+
+const sanitizeDecimal = (text: string): string => {
+  // Allow only digits and a single decimal point.
+  let sanitized = text.replace(/[^0-9.]/g, "");
+  // Remove additional dots if any.
+  const parts = sanitized.split(".");
+  if (parts.length > 2) {
+    sanitized = parts.shift() + "." + parts.join("");
+  }
+  return sanitized;
+};
+
 const AddActivity: React.FC = () => {
   const [activity, setActivity] = useState({
     phoneNumber: "81228470",
@@ -44,9 +62,7 @@ const AddActivity: React.FC = () => {
     setTimeout(() => setMessage(""), 5000);
   };
 
-  // Function to calculate calories via API
   const handleCalculateCalories = async (): Promise<void> => {
-    // Validate required fields before API call
     if (
       activity.exerciseType.trim() === "" ||
       activity.durationMinutes.trim() === "" ||
@@ -85,12 +101,14 @@ const AddActivity: React.FC = () => {
     }
   };
 
-  // Validate if required fields are available for calorie calculation
+  // Validate if required fields are available for calorie calculation.
   const isValidForCalculation =
     activity.exerciseType.trim() !== "" &&
     activity.durationMinutes.trim() !== "" &&
     !isNaN(parseInt(activity.durationMinutes)) &&
     parseInt(activity.durationMinutes) > 0;
+
+  const isFormValid = activity.exerciseType.trim() !== "" && activity.durationMinutes.trim() !== "" && activity.caloriesBurned.trim() !== "" && activity.distanceFromHome.trim() !== "";
 
   const handleSubmit = async (): Promise<void> => {
     setLoading(true);
@@ -158,12 +176,18 @@ const AddActivity: React.FC = () => {
         />
       </View>
 
+      {/* Duration input with numeric sanitization */}
       <View className="mb-3">
         <Text className="text-gray-700 mb-1">Duration (minutes)</Text>
         <TextInput
           placeholder="Duration (minutes)"
           value={activity.durationMinutes}
-          onChangeText={(text) => setActivity((prev) => ({ ...prev, durationMinutes: text }))}
+          onChangeText={(text) =>
+            setActivity((prev) => ({
+              ...prev,
+              durationMinutes: sanitizeNumeric(text),
+            }))
+          }
           keyboardType="numeric"
           className="border border-gray-300 rounded p-2"
         />
@@ -178,6 +202,7 @@ const AddActivity: React.FC = () => {
         {loading ? <ActivityIndicator size="small" color="#fff" /> : <Text className="text-white text-center font-semibold">Calculate Calories</Text>}
       </TouchableOpacity>
 
+      {/* Calories Burned output */}
       <View className="mb-3">
         <Text className="text-gray-700 mb-1">Calories Burned</Text>
         <TextInput placeholder="Calories Burned" value={activity.caloriesBurned} editable={false} className="border border-gray-300 rounded p-2 bg-gray-200" />
@@ -209,18 +234,25 @@ const AddActivity: React.FC = () => {
         />
       </View>
 
+      {/* Distance input with decimal sanitization */}
       <View className="mb-4">
         <Text className="text-gray-700 mb-1">Distance From Home</Text>
         <TextInput
           placeholder="Distance From Home"
           value={activity.distanceFromHome}
-          onChangeText={(text) => setActivity((prev) => ({ ...prev, distanceFromHome: text }))}
+          onChangeText={(text) =>
+            setActivity((prev) => ({
+              ...prev,
+              distanceFromHome: sanitizeDecimal(text),
+            }))
+          }
           keyboardType="numeric"
           className="border border-gray-300 rounded p-2"
         />
       </View>
 
-      <TouchableOpacity className="bg-green-600 p-3 rounded mb-2" onPress={handleSubmit}>
+      {/* Add Exercise button disabled if required fields are missing */}
+      <TouchableOpacity className={`bg-green-600 p-3 rounded mb-2 ${!isFormValid ? "opacity-50" : ""}`} onPress={handleSubmit} disabled={!isFormValid}>
         {loading ? <ActivityIndicator size="small" color="#fff" /> : <Text className="text-white text-center font-semibold">Add Exercise</Text>}
       </TouchableOpacity>
 
