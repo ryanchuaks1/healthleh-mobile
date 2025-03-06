@@ -40,6 +40,7 @@ export default function RootLayout() {
         <Stack.Screen name="goal-chart" options={{ title: "Goal" }} />
         <Stack.Screen name="activities" options={{ title: "Activities" }} />
         <Stack.Screen name="add-activity" options={{ headerShown: false, title: "Add activity" }} />
+        <Stack.Screen name="chart-page" options={{ headerShown: false, title: "Chart" }} />
         <Stack.Screen name="edit-activity/[id]" options={{ headerShown: false, title: "Edit activity" }} />
       </Stack>
       <StatusBar style="auto" />

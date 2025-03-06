@@ -91,25 +91,31 @@ const Activities: React.FC = () => {
     data: groupedActivities[dateKey],
   }));
 
-  // NEW: Update daily record with aggregated calories burned for each date group.
   // Home page already ensures the daily record exists, so we just send the update.
   useEffect(() => {
     if (!phoneNumber || activities.length === 0) return;
-    const updateDailyKcal = async () => {
-      // For each date group, calculate the total calories burned.
+    const updateDailyRecord = async () => {
       for (const dateKey in groupedActivities) {
         const group = groupedActivities[dateKey];
+        // Sum calories burned and exercise duration from the group
         const totalCalories = group.reduce((sum, activity) => sum + activity.caloriesBurned, 0);
-        console.log("Total calories burned on", new Date(Number(dateKey)).toISOString().split("T")[0], ":", totalCalories);
+        const totalDuration = group.reduce((sum, activity) => sum + activity.durationMinutes, 0);
         const recordDate = new Date(Number(dateKey)).toISOString().split("T")[0];
+        console.log(
+          "Updating record for",
+          recordDate,
+          "- Calories:",
+          totalCalories,
+          "Duration:",
+          totalDuration
+        );
         try {
           const res = await fetch(`${config.API_BASE_URL}/api/dailyrecords/${phoneNumber}/${recordDate}`, {
             method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               totalCaloriesBurned: totalCalories,
+              exerciseDurationMinutes: totalDuration,
             }),
           });
           if (!res.ok) {
@@ -120,8 +126,7 @@ const Activities: React.FC = () => {
         }
       }
     };
-    updateDailyKcal();
-    // We add groupedActivities as dependency because it changes when activities update.
+    updateDailyRecord();
   }, [phoneNumber, activities, groupedActivities]);
 
   return (
