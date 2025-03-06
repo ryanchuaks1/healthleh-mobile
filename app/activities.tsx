@@ -101,14 +101,14 @@ const Activities: React.FC = () => {
         const totalCalories = group.reduce((sum, activity) => sum + activity.caloriesBurned, 0);
         const totalDuration = group.reduce((sum, activity) => sum + activity.durationMinutes, 0);
         const recordDate = new Date(Number(dateKey)).toISOString().split("T")[0];
-        console.log(
-          "Updating record for",
-          recordDate,
-          "- Calories:",
-          totalCalories,
-          "Duration:",
-          totalDuration
-        );
+        // console.log(
+        //   "Updating record for",
+        //   recordDate,
+        //   "- Calories:",
+        //   totalCalories,
+        //   "Duration:",
+        //   totalDuration
+        // );
         try {
           const res = await fetch(`${config.API_BASE_URL}/api/dailyrecords/${phoneNumber}/${recordDate}`, {
             method: "PUT",

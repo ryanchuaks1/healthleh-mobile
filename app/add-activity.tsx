@@ -76,6 +76,8 @@ const AddActivity: React.FC = () => {
         const storedPhone = await AsyncStorage.getItem("userPhoneNumber");
         if (storedPhone) {
           setActivity((prev) => ({ ...prev, phoneNumber: storedPhone }));
+          // Now that we have the phone number, fetch recommendations
+          fetchRecommendations(storedPhone);
         } else {
           console.error("Phone number not found in AsyncStorage");
         }
@@ -86,28 +88,55 @@ const AddActivity: React.FC = () => {
     getPhoneNumber();
   }, []);
 
-  const fetchRecommendations = async () => {
+  const fetchRecommendations = async (phoneNumber: string) => {
     try {
       setLoading(true);
+      // 1. Fetch the user's last 14 activities.
+      const activitiesResponse = await fetch(
+        `${config.API_BASE_URL}/api/user-exercises/last/${phoneNumber}`
+      );
+      if (!activitiesResponse.ok) {
+        displayMessage("Error fetching last 14 activities.");
+        return;
+      }
+      const activitiesData = await activitiesResponse.json();
+  
+      console.log("Fetched last 14 activities:", activitiesData); // For debugging
+  
+      // 2. Build dynamic values from the fetched data.
+      const timeTriggered = new Date().toISOString();
+      const last14Distances = activitiesData
+        .map((item: any) => item.distanceFromHome)
+        .join(",");
+      const last14ActivityPerformed = activitiesData
+        .map((item: any) => item.exerciseType)
+        .join(",");
+      const last14ActivityRating = activitiesData
+        .map((item: any) => item.rating)
+        .join(",");
+  
+      // 3. Build the request body for the recommendation API.
+      const requestBody = {
+        timeTriggered,
+        userDistanceFromHome: activity.distanceFromHome || "2km",
+        last14Distances,
+        connectedIotDevices: "Phone, Watch",
+        last14UsedIotDevices:
+          '{ "Phone": "full screen notification", "Watch": "vibrate and notify" }',
+        last14ActivityPerformed,
+        last14ActivityRating,
+      };
+  
+      // 4. Call the recommendation API with the dynamic body.
       const response = await fetch(`${config.API_AI_URL}/recommendation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // Pass dynamic data as needed for recommendations
-        body: JSON.stringify({
-          timeTriggered: "{...}", // your dynamic values
-          userDistanceFromHome: "2km",
-          last14Distances: "{...}",
-          connectedIotDevices: "{Phone, Watch}",
-          last14UsedIotDevices: '{ "Phone": "full screen notification", "Watch": "vibrate and notify" }',
-          last14ActivityPerformed:
-            "{Running,Running,Running,Running,Running,Running,Running,Jumping Jacks,Jumping Jacks,Jumping Jacks,Jumping Jacks,Jumping Jacks,Jumping Jacks,Jumping Jacks}",
-          last14ActivityRating: "{5,5,5,5,5,5,5,5,5,5,5,5,5,5}",
-        }),
+        body: JSON.stringify(requestBody),
       });
       if (response.ok) {
         const data = await response.json();
         setRecommendations(data.exercise_recommendation);
-        // Pre-select the first recommendation by default
+        // Pre-select the first recommendation by default.
         setSelectedExercise(data.exercise_recommendation.recommendation_1);
       } else {
         displayMessage("Error fetching recommendations.");
@@ -118,10 +147,6 @@ const AddActivity: React.FC = () => {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchRecommendations();
-  }, []);
 
   // When user selects an exercise from the picker, update both state and activity.exerciseType
   const handleExerciseChange = (value: string) => {
