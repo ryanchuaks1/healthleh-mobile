@@ -5,10 +5,13 @@ import { useRouter } from "expo-router";
 interface ActivitySectionProps {
   steps: number;
   lastActivity: string;
+  kcalBurned: number;
 }
 
-const ActivitySection: React.FC<ActivitySectionProps> = ({ steps, lastActivity }) => {
+const ActivitySection: React.FC<ActivitySectionProps> = ({ steps, lastActivity, kcalBurned }) => {
   const router = useRouter();
+  const multiplier = 0.04;
+  const computedKcal = Math.round(steps * multiplier + kcalBurned);
 
   return (
     <>
@@ -20,7 +23,7 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({ steps, lastActivity }
         </View>
         <View className="bg-green-500 rounded-lg shadow-md p-4 flex-1 ml-2">
           <Text className="text-white text-lg font-bold">Kcal Burned 🔥</Text>
-          <Text className="text-white text-md mt-1">200</Text>
+          <Text className="text-white text-md mt-1">{computedKcal}</Text>
         </View>
       </View>
       <TouchableOpacity className="mb-6" onPress={() => router.push("/activities")}>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { ScrollView, ActivityIndicator, View, Platform, TouchableOpacity, Text } from "react-native";
 import ProfileSection from "../components/ProfileSection";
 import ActivitySection from "../components/ActivitySection";
@@ -15,12 +15,16 @@ export default function Home() {
     weight: "loading...",
     weightGoal: "loading...",
   });
-  const [steps, setSteps] = useState<number | null>(null);
+  // Removed separate "steps" state; we use dailyRecord.totalSteps instead.
   const [lastActivity, setLastActivity] = useState("Walked 2 km");
   const [devices, setDevices] = useState([]);
   const [loading, setLoading] = useState(false);
   const [userPhoneNumber, setUserPhoneNumber] = useState<string | null>(null);
   const [hasCheckedDailyRecord, setHasCheckedDailyRecord] = useState(false);
+  const [dailyRecord, setDailyRecord] = useState<any>(null); // stores today's daily record
+
+  // Use a ref to hold the current step count for the interval callback.
+  const stepsRef = useRef<number>(0);
 
   // Retrieve user phone number from AsyncStorage
   useEffect(() => {
@@ -128,8 +132,14 @@ export default function Home() {
 
   // One-time check to see if today's daily record exists; if not, post it.
   useEffect(() => {
-    if (userPhoneNumber && steps !== null && !hasCheckedDailyRecord) {
+    if (userPhoneNumber && !hasCheckedDailyRecord) {
       const todayDate = new Date().toISOString().split("T")[0];
+      // For the web simulation, initialize with a random step count.
+      const initialSteps = Platform.OS === "web" ? Math.floor(Math.random() * (3000 - 1000 + 1)) + 1000 : 0;
+
+      // Update our ref with the initial value
+      stepsRef.current = initialSteps;
+
       fetch(`${config.API_BASE_URL}/api/dailyrecords/${userPhoneNumber}/${todayDate}`)
         .then((res) => {
           if (res.status === 404) {
@@ -142,12 +152,12 @@ export default function Home() {
               body: JSON.stringify({
                 phoneNumber: userPhoneNumber,
                 recordDate: todayDate,
-                totalSteps: steps,
+                totalSteps: initialSteps,
                 totalCaloriesBurned: null,
                 exerciseDurationMinutes: null,
                 weight: null,
               }),
-            });
+            }).then((res) => res.json());
           } else {
             console.log("Daily record already exists for today");
             return res.json();
@@ -155,6 +165,7 @@ export default function Home() {
         })
         .then((data) => {
           console.log("Daily record status:", data);
+          setDailyRecord(data);
           setHasCheckedDailyRecord(true);
         })
         .catch((error) => {
@@ -162,46 +173,18 @@ export default function Home() {
           setHasCheckedDailyRecord(true);
         });
     }
-  }, [userPhoneNumber]);
+  }, [userPhoneNumber, hasCheckedDailyRecord]);
 
-  // Update daily record when steps change (after the initial record check/creation)
+  // For Android: Fetch steps from Google Fit once on page load
   useEffect(() => {
-    if (userPhoneNumber && steps !== null && hasCheckedDailyRecord) {
-      const todayDate = new Date().toISOString().split("T")[0];
-      fetch(`${config.API_BASE_URL}/api/dailyrecords/${userPhoneNumber}/${todayDate}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          totalSteps: steps,
-          totalCaloriesBurned: null,
-          exerciseDurationMinutes: null,
-          weight: null,
-        }),
-      })
-        .then((response) => response.json())
-        .then((data) => console.log("Daily record updated on step change:", data))
-        .catch((error) => console.error("Error updating daily record on step change:", error));
-    }
-  }, [steps, userPhoneNumber, hasCheckedDailyRecord]);
-
-  // Fetch steps data once on page load
-  useEffect(() => {
-    let intervalId: string | number | NodeJS.Timeout | undefined;
-    if (Platform.OS === "web") {
-      // For web, simulate a one-time fetch with a random value
-      const initialSteps = Math.floor(Math.random() * (3000 - 1000 + 1)) + 1000;
-      setSteps(initialSteps);
-    } else {
-      // For Android, use Google Fit to retrieve today's steps just once
+    if (Platform.OS !== "web" && userPhoneNumber) {
       const options = {
         scopes: [Scopes.FITNESS_ACTIVITY_READ, Scopes.FITNESS_ACTIVITY_WRITE],
       };
 
       const fetchSteps = () => {
         const stepOptions = {
-          startDate: new Date(new Date().setHours(0, 0, 0, 0)).toISOString(), // start of day
+          startDate: new Date(new Date().setHours(0, 0, 0, 0)).toISOString(),
           endDate: new Date().toISOString(),
         };
         GoogleFit.getDailyStepCountSamples(stepOptions)
@@ -209,7 +192,24 @@ export default function Home() {
             const stepsSample = res.find((sample) => sample.source === "com.google.android.gms:estimated_steps" || sample.source === "estimated_steps");
             if (stepsSample && stepsSample.steps.length > 0) {
               const todaySteps = stepsSample.steps.reduce((total, stepEntry) => total + (stepEntry.value || 0), 0);
-              setSteps(todaySteps);
+              // Update the daily record with the fetched steps
+              const todayDate = new Date().toISOString().split("T")[0];
+              fetch(`${config.API_BASE_URL}/api/dailyrecords/${userPhoneNumber}/${todayDate}`, {
+                method: "PUT",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  totalSteps: todaySteps,
+                }),
+              })
+                .then((response) => response.json())
+                .then((data) => {
+                  setDailyRecord(data);
+                })
+                .catch((err) => {
+                  console.log("Error updating daily record from Google Fit:", err);
+                });
             } else {
               console.log("No steps data found for today");
             }
@@ -238,12 +238,37 @@ export default function Home() {
         }
       });
     }
-
-    // No polling interval, since we're only fetching once
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
   }, [userPhoneNumber]);
+
+  // For Web: Simulate daily step increments every 120 seconds by updating the dailyRecord.
+  useEffect(() => {
+    if (Platform.OS === "web" && userPhoneNumber && hasCheckedDailyRecord) {
+      const todayDate = new Date().toISOString().split("T")[0];
+      const intervalId = setInterval(() => {
+        const increment = Math.floor(Math.random() * (20 - 10 + 1)) + 10; // random increment between 10 and 20
+        stepsRef.current += increment;
+        fetch(`${config.API_BASE_URL}/api/dailyrecords/${userPhoneNumber}/${todayDate}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ totalSteps: stepsRef.current }),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            console.log("Daily record updated on web interval:", data);
+            setDailyRecord((prev: any) => ({ ...prev, totalSteps: stepsRef.current }));
+          })
+          .catch((err) => console.error("Error updating daily record on web interval:", err));
+      }, 120000); // 120 seconds
+      return () => clearInterval(intervalId);
+    }
+  }, [userPhoneNumber, hasCheckedDailyRecord]);
+
+  // Synchronize the stepsRef with the fetched dailyRecord's totalSteps
+  useEffect(() => {
+    if (Platform.OS === "web" && dailyRecord && dailyRecord.totalSteps !== undefined) {
+      stepsRef.current = dailyRecord.totalSteps;
+    }
+  }, [dailyRecord]);
 
   // Log out function
   const handleLogout = async () => {
@@ -262,7 +287,11 @@ export default function Home() {
       ) : (
         <View>
           <ProfileSection healthData={healthData} />
-          <ActivitySection steps={steps || 0} lastActivity={lastActivity} />
+          <ActivitySection
+            steps={dailyRecord && dailyRecord.totalSteps ? dailyRecord.totalSteps : 0}
+            lastActivity={lastActivity}
+            kcalBurned={dailyRecord && dailyRecord.totalCaloriesBurned ? dailyRecord.totalCaloriesBurned : 0}
+          />
           <GoalBarSection currentWeight={healthData.weight} weightGoal={healthData.weightGoal} />
           <DeviceSection devices={devices} />
           <TouchableOpacity className="bg-red-500 p-4 rounded-lg mt-4" onPress={handleLogout}>

@@ -91,6 +91,39 @@ const Activities: React.FC = () => {
     data: groupedActivities[dateKey],
   }));
 
+  // NEW: Update daily record with aggregated calories burned for each date group.
+  // Home page already ensures the daily record exists, so we just send the update.
+  useEffect(() => {
+    if (!phoneNumber || activities.length === 0) return;
+    const updateDailyKcal = async () => {
+      // For each date group, calculate the total calories burned.
+      for (const dateKey in groupedActivities) {
+        const group = groupedActivities[dateKey];
+        const totalCalories = group.reduce((sum, activity) => sum + activity.caloriesBurned, 0);
+        console.log("Total calories burned on", new Date(Number(dateKey)).toISOString().split("T")[0], ":", totalCalories);
+        const recordDate = new Date(Number(dateKey)).toISOString().split("T")[0];
+        try {
+          const res = await fetch(`${config.API_BASE_URL}/api/dailyrecords/${phoneNumber}/${recordDate}`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              totalCaloriesBurned: totalCalories,
+            }),
+          });
+          if (!res.ok) {
+            console.error(`Failed to update daily record for ${recordDate}`);
+          }
+        } catch (error) {
+          console.error("Error updating daily record:", error);
+        }
+      }
+    };
+    updateDailyKcal();
+    // We add groupedActivities as dependency because it changes when activities update.
+  }, [phoneNumber, activities, groupedActivities]);
+
   return (
     <ScrollView className="flex-1 bg-gray-100 p-6">
       <Text className="text-3xl font-bold text-orange-800 mb-4">User Exercise Logging</Text>
