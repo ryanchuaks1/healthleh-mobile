@@ -11,23 +11,28 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({ steps, lastActivity }
   const router = useRouter();
 
   return (
-    <TouchableOpacity className="mb-6" onPress={() => router.push("/activities")}>
+    <>
       <Text className="text-xl font-bold text-orange-700 mb-4">Your Activity</Text>
       <View className="flex-row justify-between mb-4">
         <View className="bg-orange-400 rounded-lg shadow-md p-4 flex-1 mr-2">
-          <Text className="text-white text-lg font-bold">Steps</Text>
-          <Text className="text-white text-md mt-2">{steps} steps</Text>
+          <Text className="text-white text-lg font-bold">Steps 👟</Text>
+          <Text className="text-white text-md mt-1">{steps} steps</Text>
         </View>
         <View className="bg-green-500 rounded-lg shadow-md p-4 flex-1 ml-2">
-          <Text className="text-white text-lg font-bold">Last Activity</Text>
-          <Text className="text-white text-md mt-2">{lastActivity}</Text>
+          <Text className="text-white text-lg font-bold">Kcal Burned 🔥</Text>
+          <Text className="text-white text-md mt-1">200</Text>
         </View>
       </View>
-      <View className="bg-blue-500 rounded-lg shadow-md p-4">
-        <Text className="text-white text-lg font-bold">Calories Burned</Text>
-        <Text className="text-white text-md mt-2">450 kcal</Text>
-      </View>
-    </TouchableOpacity>
+      <TouchableOpacity className="mb-6" onPress={() => router.push("/activities")}>
+        <View className="bg-blue-500 rounded-lg shadow-md p-4 flex-row items-center justify-between">
+          <View>
+            <Text className="text-white text-lg font-bold">Last Activity</Text>
+            <Text className="text-white text-md mt-2">{lastActivity}</Text>
+          </View>
+          <Text className="text-white text-3xl">{">"}</Text>
+        </View>
+      </TouchableOpacity>
+    </>
   );
 };
 

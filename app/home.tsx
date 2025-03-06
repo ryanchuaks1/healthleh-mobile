@@ -5,7 +5,7 @@ import ActivitySection from "../components/ActivitySection";
 import DeviceSection from "../components/DeviceSection";
 import GoalBarSection from "../components/GoalBarSection";
 import config from "../config.js";
-import GoogleFit, { Scopes } from "react-native-google-fit"; // Import Google Fit
+import GoogleFit, { Scopes } from "react-native-google-fit";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 
@@ -15,11 +15,12 @@ export default function Home() {
     weight: "loading...",
     weightGoal: "loading...",
   });
-  const [steps, setSteps] = useState(1231);
+  const [steps, setSteps] = useState<number | null>(null);
   const [lastActivity, setLastActivity] = useState("Walked 2 km");
   const [devices, setDevices] = useState([]);
   const [loading, setLoading] = useState(false);
   const [userPhoneNumber, setUserPhoneNumber] = useState<string | null>(null);
+  const [hasCheckedDailyRecord, setHasCheckedDailyRecord] = useState(false);
 
   // Retrieve user phone number from AsyncStorage
   useEffect(() => {
@@ -39,12 +40,13 @@ export default function Home() {
     getUserPhoneNumber();
   }, []);
 
-  // Fetch user health data and weight goal once phone number is available
+  // Fetch user health data, weight goal, and last activity once phone number is available
   useEffect(() => {
     if (!userPhoneNumber) return;
-    const fetchUserDataAndGoals = async () => {
+    const fetchUserDataGoalsAndActivity = async () => {
       setLoading(true);
       try {
+        // Fetch user health data
         const userResponse = await fetch(`${config.API_BASE_URL}/api/users/${userPhoneNumber}`);
         if (userResponse.ok) {
           const userData = await userResponse.json();
@@ -57,6 +59,7 @@ export default function Home() {
           console.error("Error fetching user data:", userResponse.status);
         }
 
+        // Fetch weight goal
         const goalsResponse = await fetch(`${config.API_BASE_URL}/api/goals/${userPhoneNumber}`);
         if (goalsResponse.ok) {
           const goals = await goalsResponse.json();
@@ -70,14 +73,30 @@ export default function Home() {
         } else {
           console.error("Error fetching goals:", goalsResponse.status);
         }
+
+        // Fetch the last 14 activities and update lastActivity with the most recent one
+        const activitiesResponse = await fetch(`${config.API_BASE_URL}/api/user-exercises/last/${userPhoneNumber}`);
+        if (activitiesResponse.ok) {
+          const activities = await activitiesResponse.json();
+          if (activities && activities.length > 0) {
+            const latestActivity = activities[0]; // Assuming the most recent is first
+            const activityText = `${latestActivity.exerciseType} for ${latestActivity.durationMinutes} minutes`;
+            setLastActivity(activityText);
+          } else {
+            setLastActivity("No activity found");
+          }
+        } else {
+          console.error("Error fetching last activities:", activitiesResponse.status);
+          setLastActivity("No activity found");
+        }
       } catch (error) {
-        console.error("Error fetching user data and goals:", error);
+        console.error("Error fetching user data, goals, and activities:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchUserDataAndGoals();
+    fetchUserDataGoalsAndActivity();
   }, [userPhoneNumber]);
 
   // Fetch devices for the user once phone number is available
@@ -107,20 +126,75 @@ export default function Home() {
     fetchDevices();
   }, [userPhoneNumber]);
 
-  // Polling for step data
+  // One-time check to see if today's daily record exists; if not, post it.
+  useEffect(() => {
+    if (userPhoneNumber && steps !== null && !hasCheckedDailyRecord) {
+      const todayDate = new Date().toISOString().split("T")[0];
+      fetch(`${config.API_BASE_URL}/api/dailyrecords/${userPhoneNumber}/${todayDate}`)
+        .then((res) => {
+          if (res.status === 404) {
+            // Record does not exist; create it
+            return fetch(`${config.API_BASE_URL}/api/dailyrecords`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                phoneNumber: userPhoneNumber,
+                recordDate: todayDate,
+                totalSteps: steps,
+                totalCaloriesBurned: null,
+                exerciseDurationMinutes: null,
+                weight: null,
+              }),
+            });
+          } else {
+            console.log("Daily record already exists for today");
+            return res.json();
+          }
+        })
+        .then((data) => {
+          console.log("Daily record status:", data);
+          setHasCheckedDailyRecord(true);
+        })
+        .catch((error) => {
+          console.error("Error checking/creating daily record:", error);
+          setHasCheckedDailyRecord(true);
+        });
+    }
+  }, [userPhoneNumber]);
+
+  // Update daily record when steps change (after the initial record check/creation)
+  useEffect(() => {
+    if (userPhoneNumber && steps !== null && hasCheckedDailyRecord) {
+      const todayDate = new Date().toISOString().split("T")[0];
+      fetch(`${config.API_BASE_URL}/api/dailyrecords/${userPhoneNumber}/${todayDate}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          totalSteps: steps,
+          totalCaloriesBurned: null,
+          exerciseDurationMinutes: null,
+          weight: null,
+        }),
+      })
+        .then((response) => response.json())
+        .then((data) => console.log("Daily record updated on step change:", data))
+        .catch((error) => console.error("Error updating daily record on step change:", error));
+    }
+  }, [steps, userPhoneNumber, hasCheckedDailyRecord]);
+
+  // Fetch steps data once on page load
   useEffect(() => {
     let intervalId: string | number | NodeJS.Timeout | undefined;
-
     if (Platform.OS === "web") {
-      // For web, initialize with a random value and simulate an increase
+      // For web, simulate a one-time fetch with a random value
       const initialSteps = Math.floor(Math.random() * (3000 - 1000 + 1)) + 1000;
       setSteps(initialSteps);
-      intervalId = setInterval(() => {
-        const randomIncrease = Math.floor(Math.random() * 10) + 1;
-        setSteps((prevSteps) => prevSteps + randomIncrease);
-      }, 5000);
     } else {
-      // For Android, use Google Fit to retrieve today's steps
+      // For Android, use Google Fit to retrieve today's steps just once
       const options = {
         scopes: [Scopes.FITNESS_ACTIVITY_READ, Scopes.FITNESS_ACTIVITY_WRITE],
       };
@@ -152,8 +226,6 @@ export default function Home() {
               if (authResult.success) {
                 console.log("Google Fit authorization success");
                 fetchSteps();
-                // Poll every minute after authorization
-                intervalId = setInterval(fetchSteps, 60000);
               } else {
                 console.log("Google Fit authorization denied", authResult.message);
               }
@@ -163,15 +235,15 @@ export default function Home() {
             });
         } else {
           fetchSteps();
-          intervalId = setInterval(fetchSteps, 60000);
         }
       });
     }
 
+    // No polling interval, since we're only fetching once
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, []);
+  }, [userPhoneNumber]);
 
   // Log out function
   const handleLogout = async () => {
@@ -190,7 +262,7 @@ export default function Home() {
       ) : (
         <View>
           <ProfileSection healthData={healthData} />
-          <ActivitySection steps={steps} lastActivity={lastActivity} />
+          <ActivitySection steps={steps || 0} lastActivity={lastActivity} />
           <GoalBarSection currentWeight={healthData.weight} weightGoal={healthData.weightGoal} />
           <DeviceSection devices={devices} />
           <TouchableOpacity className="bg-red-500 p-4 rounded-lg mt-4" onPress={handleLogout}>
