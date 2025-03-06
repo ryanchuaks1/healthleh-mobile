@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { ScrollView, ActivityIndicator, View, Platform } from "react-native";
+import { ScrollView, ActivityIndicator, View, Platform, TouchableOpacity, Text } from "react-native";
 import ProfileSection from "../components/ProfileSection";
 import ActivitySection from "../components/ActivitySection";
 import DeviceSection from "../components/DeviceSection";
 import GoalBarSection from "../components/GoalBarSection";
 import config from "../config.js";
 import GoogleFit, { Scopes } from "react-native-google-fit"; // Import Google Fit
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
 
 export default function Home() {
   const [healthData, setHealthData] = useState({
@@ -17,10 +19,29 @@ export default function Home() {
   const [lastActivity, setLastActivity] = useState("Walked 2 km");
   const [devices, setDevices] = useState([]);
   const [loading, setLoading] = useState(false);
-  const userPhoneNumber = "81228470"; // Replace with the logged-in user's phone number
+  const [userPhoneNumber, setUserPhoneNumber] = useState<string | null>(null);
 
-  // Fetch user health data and weight goal
+  // Retrieve user phone number from AsyncStorage
   useEffect(() => {
+    const getUserPhoneNumber = async () => {
+      try {
+        const storedPhoneNumber = await AsyncStorage.getItem("userPhoneNumber");
+        if (storedPhoneNumber) {
+          setUserPhoneNumber(storedPhoneNumber);
+        } else {
+          console.error("User phone number not found in AsyncStorage.");
+          router.push("/");
+        }
+      } catch (error) {
+        console.error("Error retrieving user phone number:", error);
+      }
+    };
+    getUserPhoneNumber();
+  }, []);
+
+  // Fetch user health data and weight goal once phone number is available
+  useEffect(() => {
+    if (!userPhoneNumber) return;
     const fetchUserDataAndGoals = async () => {
       setLoading(true);
       try {
@@ -59,8 +80,9 @@ export default function Home() {
     fetchUserDataAndGoals();
   }, [userPhoneNumber]);
 
-  // Fetch devices for the user
+  // Fetch devices for the user once phone number is available
   useEffect(() => {
+    if (!userPhoneNumber) return;
     const fetchDevices = async () => {
       setLoading(true);
       try {
@@ -90,13 +112,15 @@ export default function Home() {
     let intervalId: string | number | NodeJS.Timeout | undefined;
 
     if (Platform.OS === "web") {
+      // For web, initialize with a random value and simulate an increase
       const initialSteps = Math.floor(Math.random() * (3000 - 1000 + 1)) + 1000;
       setSteps(initialSteps);
       intervalId = setInterval(() => {
-        const randomIncrease = Math.floor(Math.random() * (10 - 1 + 1)) + 1;
+        const randomIncrease = Math.floor(Math.random() * 10) + 1;
         setSteps((prevSteps) => prevSteps + randomIncrease);
       }, 5000);
     } else {
+      // For Android, use Google Fit to retrieve today's steps
       const options = {
         scopes: [Scopes.FITNESS_ACTIVITY_READ, Scopes.FITNESS_ACTIVITY_WRITE],
       };
@@ -149,6 +173,16 @@ export default function Home() {
     };
   }, []);
 
+  // Log out function
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.removeItem("userPhoneNumber");
+      router.push("/");
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
+  };
+
   return (
     <ScrollView className="flex-1 bg-gray-100 p-6">
       {loading ? (
@@ -159,6 +193,9 @@ export default function Home() {
           <ActivitySection steps={steps} lastActivity={lastActivity} />
           <GoalBarSection currentWeight={healthData.weight} weightGoal={healthData.weightGoal} />
           <DeviceSection devices={devices} />
+          <TouchableOpacity className="bg-red-500 p-4 rounded-lg mt-4" onPress={handleLogout}>
+            <Text className="text-center text-white font-bold">Log Out</Text>
+          </TouchableOpacity>
         </View>
       )}
     </ScrollView>

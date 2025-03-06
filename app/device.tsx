@@ -4,6 +4,7 @@ import config from "../config.js";
 import { router } from "expo-router";
 import { BleManager } from "react-native-ble-plx";
 import { MaterialIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function DeviceManagement() {
   // Device interface
@@ -24,7 +25,8 @@ export default function DeviceManagement() {
   const [modalVisible, setModalVisible] = useState(false);
   const [message, setMessage] = useState(""); // On-screen message state
   const [loading, setLoading] = useState(false);
-  const userPhoneNumber = "81228470"; // Replace with logged-in user's phone number
+  // Removed hardcoded phone number; instead, use state to store it
+  const [userPhoneNumber, setUserPhoneNumber] = useState<string>("");
 
   // State for editing a device
   const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
@@ -40,16 +42,40 @@ export default function DeviceManagement() {
     setTimeout(() => setMessage(""), 5000);
   };
 
+  // Retrieve the logged-in user's phone number from AsyncStorage
+  useEffect(() => {
+    const getUserPhoneNumber = async () => {
+      try {
+        const storedPhone = await AsyncStorage.getItem("userPhoneNumber");
+        if (storedPhone) {
+          setUserPhoneNumber(storedPhone);
+        } else {
+          console.error("User phone number not found in AsyncStorage");
+        }
+      } catch (error) {
+        console.error("Error retrieving user phone number:", error);
+      }
+    };
+    getUserPhoneNumber();
+  }, []);
+
   const requestPermissions = async () => {
     if (Platform.OS === "android") {
       await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
     }
   };
 
+  // Fetch devices once the phone number is available
+  useEffect(() => {
+    if (userPhoneNumber) {
+      fetchDevices();
+    }
+  }, [userPhoneNumber]);
+
   const fetchDevices = async () => {
     setLoading(true);
     try {
-      console.log("API_BASE_URL:", `${config.API_BASE_URL}/api/devices/${userPhoneNumber}`);
+      console.log("Fetching devices from:", `${config.API_BASE_URL}/api/devices/${userPhoneNumber}`);
       const response = await fetch(`${config.API_BASE_URL}/api/devices/${userPhoneNumber}`);
       if (response.ok) {
         const fetchedDevices = await response.json();
@@ -209,8 +235,11 @@ export default function DeviceManagement() {
   };
 
   useEffect(() => {
-    fetchDevices();
-  }, []);
+    // Fetch devices only when the phone number is set
+    if (userPhoneNumber) {
+      fetchDevices();
+    }
+  }, [userPhoneNumber]);
 
   return (
     <ScrollView className="flex-1 bg-gray-100 p-6">
@@ -278,14 +307,14 @@ export default function DeviceManagement() {
                     </TouchableOpacity>
                   </View>
                   <View className="flex-row justify-between my-2">
-                    <TouchableOpacity className="flex-1 bg-red-500 p-3 rounded-lg shadow-md mr-1" onPress={() => setEditingDeviceId(null)}>
+                    <TouchableOpacity className="flex-1 bg-blue-500 p-3 rounded-lg shadow-md mr-1" onPress={() => setEditingDeviceId(null)}>
                       <Text className="text-center text-white font-bold">Cancel</Text>
                     </TouchableOpacity>
                     <TouchableOpacity className="flex-1 bg-green-500 p-3 rounded-lg shadow-md ml-1" onPress={() => handleSaveEdit(device.deviceId)}>
                       <Text className="text-center text-white font-bold">Save</Text>
                     </TouchableOpacity>
                   </View>
-                  <TouchableOpacity className="w-full bg-red-700 p-2 rounded-lg shadow-md" onPress={() => deleteDevice(device.deviceId)}>
+                  <TouchableOpacity className="w-full bg-red-700 p-2 rounded-lg shadow-md my-2" onPress={() => deleteDevice(device.deviceId)}>
                     <Text className="text-center text-white font-bold">Delete Device</Text>
                   </TouchableOpacity>
                 </>

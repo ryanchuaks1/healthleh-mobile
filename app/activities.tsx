@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, SectionList } from "react-native";
 import config from "../config";
 import { router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Move the interface outside the component
 interface Activity {
@@ -17,7 +18,7 @@ interface Activity {
 }
 
 const Activities: React.FC = () => {
-  const [phoneNumber, setPhoneNumber] = useState<string>("81228470");
+  const [phoneNumber, setPhoneNumber] = useState<string | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<string>("");
@@ -27,6 +28,24 @@ const Activities: React.FC = () => {
     setTimeout(() => setMessage(""), 5000);
   };
 
+  // Retrieve phone number from AsyncStorage
+  useEffect(() => {
+    const getPhoneNumber = async () => {
+      try {
+        const storedPhone = await AsyncStorage.getItem("userPhoneNumber");
+        if (storedPhone) {
+          setPhoneNumber(storedPhone);
+        } else {
+          console.error("Phone number not found in AsyncStorage");
+        }
+      } catch (error) {
+        console.error("Error retrieving phone number:", error);
+      }
+    };
+    getPhoneNumber();
+  }, []);
+
+  // Fetch activities once phoneNumber is available
   useEffect(() => {
     if (phoneNumber) fetchActivities();
   }, [phoneNumber]);
@@ -48,6 +67,7 @@ const Activities: React.FC = () => {
     }
   };
 
+  // Group activities by date
   const groupedActivities = activities.reduce((groups: { [key: number]: Activity[] }, activity) => {
     const dateObj = new Date(activity.exerciseDate);
     const dateKey = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate()).getTime();
@@ -76,20 +96,10 @@ const Activities: React.FC = () => {
       <Text className="text-3xl font-bold text-orange-800 mb-4">User Exercise Logging</Text>
       {message !== "" && <Text className="text-center text-red-500 mb-4">{message}</Text>}
 
-      <TouchableOpacity
-        className="bg-orange-800 p-3 rounded-lg shadow-md my-1"
-        onPress={() => {
-          router.push("/add-activity");
-        }}
-      >
+      <TouchableOpacity className="bg-orange-800 p-3 rounded-lg shadow-md my-1" onPress={() => router.push("/add-activity")}>
         <Text className="text-center text-white font-bold">Add Exercise</Text>
       </TouchableOpacity>
-      <TouchableOpacity
-        className="bg-slate-600 p-3 rounded-lg shadow-md my-1"
-        onPress={() => {
-          router.push("/home");
-        }}
-      >
+      <TouchableOpacity className="bg-slate-600 p-3 rounded-lg shadow-md my-1" onPress={() => router.push("/home")}>
         <Text className="text-center text-white font-bold">Back to Home</Text>
       </TouchableOpacity>
 

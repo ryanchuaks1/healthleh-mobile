@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
 import Slider from "@react-native-community/slider";
 import { Picker } from "@react-native-picker/picker";
 import config from "../config";
 import { router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // List of common exercises with an "Other" option for custom input.
 const commonExercises = [
@@ -45,7 +46,7 @@ const sanitizeDecimal = (text: string): string => {
 
 const AddActivity: React.FC = () => {
   const [activity, setActivity] = useState({
-    phoneNumber: "81228470",
+    phoneNumber: "", // now set to an empty string; will be updated from AsyncStorage
     exerciseType: "",
     durationMinutes: "",
     caloriesBurned: "",
@@ -53,14 +54,91 @@ const AddActivity: React.FC = () => {
     rating: "1",
     distanceFromHome: "",
   });
-  const [selectedExercise, setSelectedExercise] = useState<string>("Other");
+  const [selectedExercise, setSelectedExercise] = useState<string>("");
+  const [customExercise, setCustomExercise] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<string>("");
+  const [recommendations, setRecommendations] = useState<{
+    recommendation_1: string;
+    recommendation_2: string;
+    recommendation_3: string;
+  } | null>(null);
 
   const displayMessage = (text: string): void => {
     setMessage(text);
     setTimeout(() => setMessage(""), 5000);
   };
+
+  // Retrieve phone number from AsyncStorage and update activity state.
+  useEffect(() => {
+    const getPhoneNumber = async () => {
+      try {
+        const storedPhone = await AsyncStorage.getItem("userPhoneNumber");
+        if (storedPhone) {
+          setActivity((prev) => ({ ...prev, phoneNumber: storedPhone }));
+        } else {
+          console.error("Phone number not found in AsyncStorage");
+        }
+      } catch (error) {
+        console.error("Error retrieving phone number:", error);
+      }
+    };
+    getPhoneNumber();
+  }, []);
+
+  const fetchRecommendations = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${config.API_AI_URL}/recommendation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // Pass dynamic data as needed for recommendations
+        body: JSON.stringify({
+          timeTriggered: "{...}", // your dynamic values
+          userDistanceFromHome: "2km",
+          last14Distances: "{...}",
+          connectedIotDevices: "{Phone, Watch}",
+          last14UsedIotDevices: '{ "Phone": "full screen notification", "Watch": "vibrate and notify" }',
+          last14ActivityPerformed:
+            "{Running,Running,Running,Running,Running,Running,Running,Jumping Jacks,Jumping Jacks,Jumping Jacks,Jumping Jacks,Jumping Jacks,Jumping Jacks,Jumping Jacks}",
+          last14ActivityRating: "{5,5,5,5,5,5,5,5,5,5,5,5,5,5}",
+        }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setRecommendations(data.exercise_recommendation);
+        // Pre-select the first recommendation by default
+        setSelectedExercise(data.exercise_recommendation.recommendation_1);
+      } else {
+        displayMessage("Error fetching recommendations.");
+      }
+    } catch (error: any) {
+      displayMessage(`Request failed: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRecommendations();
+  }, []);
+
+  // When user selects an exercise from the picker, update both state and activity.exerciseType
+  const handleExerciseChange = (value: string) => {
+    setSelectedExercise(value);
+    if (value !== "Custom") {
+      setActivity((prev) => ({ ...prev, exerciseType: value }));
+    } else {
+      setActivity((prev) => ({ ...prev, exerciseType: customExercise }));
+    }
+  };
+
+  // If the custom field is updated and "Custom" is selected, update activity.exerciseType accordingly.
+  useEffect(() => {
+    if (selectedExercise === "Custom") {
+      setActivity((prev) => ({ ...prev, exerciseType: customExercise }));
+    }
+  }, [customExercise, selectedExercise]);
 
   const handleCalculateCalories = async (): Promise<void> => {
     if (
@@ -108,12 +186,15 @@ const AddActivity: React.FC = () => {
     !isNaN(parseInt(activity.durationMinutes)) &&
     parseInt(activity.durationMinutes) > 0;
 
-  const isFormValid = activity.exerciseType.trim() !== "" && activity.durationMinutes.trim() !== "" && activity.caloriesBurned.trim() !== "" && activity.distanceFromHome.trim() !== "";
+  const isFormValid =
+    activity.exerciseType.trim() !== "" &&
+    activity.durationMinutes.trim() !== "" &&
+    activity.caloriesBurned.trim() !== "" &&
+    activity.distanceFromHome.trim() !== "";
 
   const handleSubmit = async (): Promise<void> => {
     setLoading(true);
     try {
-      console.log("Activity to log:", activity);
       const response = await fetch(`${config.API_BASE_URL}/api/user-exercises`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -147,34 +228,26 @@ const AddActivity: React.FC = () => {
       <Text className="text-3xl font-bold text-orange-800 mb-4 text-center">Add Exercise</Text>
       {message !== "" && <Text className="text-center text-red-500 mb-4">{message}</Text>}
 
-      {/* Dropdown for common exercises */}
-      <View className="mb-3">
-        <Text className="text-gray-700 mb-1">Select Common Exercise</Text>
-        <Picker
-          selectedValue={selectedExercise}
-          onValueChange={(itemValue) => {
-            setSelectedExercise(itemValue);
-            if (itemValue !== "Other") {
-              setActivity((prev) => ({ ...prev, exerciseType: itemValue }));
-            }
-          }}
-        >
-          {commonExercises.map((exercise) => (
-            <Picker.Item label={exercise} value={exercise} key={exercise} />
-          ))}
-        </Picker>
-      </View>
-
-      {/* Custom exercise input */}
-      <View className="mb-3">
-        <Text className="text-gray-700 mb-1">Exercise Type (or enter custom)</Text>
-        <TextInput
-          placeholder="Custom Exercise Type (if not in dropdown)"
-          value={activity.exerciseType}
-          onChangeText={(text) => setActivity((prev) => ({ ...prev, exerciseType: text }))}
-          className="border border-gray-300 rounded p-2"
-        />
-      </View>
+      {/* Display recommendations if available */}
+      {recommendations && (
+        <View className="mb-4">
+          <Text className="text-gray-700 mb-1">Recommended Exercises</Text>
+          <Picker selectedValue={selectedExercise} onValueChange={(itemValue) => handleExerciseChange(itemValue)}>
+            <Picker.Item label={recommendations.recommendation_1} value={recommendations.recommendation_1} />
+            <Picker.Item label={recommendations.recommendation_2} value={recommendations.recommendation_2} />
+            <Picker.Item label={recommendations.recommendation_3} value={recommendations.recommendation_3} />
+            <Picker.Item label="Custom" value="Custom" />
+          </Picker>
+          {selectedExercise === "Custom" && (
+            <TextInput
+              placeholder="Enter custom exercise type"
+              value={customExercise}
+              onChangeText={setCustomExercise}
+              className="border border-gray-300 rounded p-2 mt-2"
+            />
+          )}
+        </View>
+      )}
 
       {/* Duration input with numeric sanitization */}
       <View className="mb-3">
@@ -189,7 +262,7 @@ const AddActivity: React.FC = () => {
             }))
           }
           keyboardType="numeric"
-          className="border border-gray-300 rounded p-2"
+          className="border border-gray-300 bg-white rounded p-2"
         />
       </View>
 
@@ -205,7 +278,7 @@ const AddActivity: React.FC = () => {
       {/* Calories Burned output */}
       <View className="mb-3">
         <Text className="text-gray-700 mb-1">Calories Burned</Text>
-        <TextInput placeholder="Calories Burned" value={activity.caloriesBurned} editable={false} className="border border-gray-300 rounded p-2 bg-gray-200" />
+        <TextInput placeholder="-" value={activity.caloriesBurned} editable={false} className="rounded p-2" />
       </View>
 
       {/* Intensity Slider */}
@@ -247,11 +320,10 @@ const AddActivity: React.FC = () => {
             }))
           }
           keyboardType="numeric"
-          className="border border-gray-300 rounded p-2"
+          className="border border-gray-300 bg-white rounded p-2"
         />
       </View>
 
-      {/* Add Exercise button disabled if required fields are missing */}
       <TouchableOpacity className={`bg-green-600 p-3 rounded mb-2 ${!isFormValid ? "opacity-50" : ""}`} onPress={handleSubmit} disabled={!isFormValid}>
         {loading ? <ActivityIndicator size="small" color="#fff" /> : <Text className="text-white text-center font-semibold">Add Exercise</Text>}
       </TouchableOpacity>

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, ScrollView } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import config from "../config";
 
 export default function Signup() {
@@ -36,6 +37,8 @@ export default function Signup() {
       });
 
       if (response.ok) {
+        // Store phone number in AsyncStorage as session token
+        await AsyncStorage.setItem("userPhoneNumber", Array.isArray(phoneNumber) ? phoneNumber[0] : phoneNumber);
         setMessageType("success");
         setMessage("User created successfully!");
         setTimeout(() => router.push("/home"), 1500); // Redirect to home after a delay

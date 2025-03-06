@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator,
 import { Picker } from "@react-native-picker/picker";
 import { useRouter } from "expo-router";
 import config from "../config.js";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function GoalChartScreen() {
   const router = useRouter();
@@ -15,17 +16,34 @@ export default function GoalChartScreen() {
   const [message, setMessage] = useState("");
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingGoal, setEditingGoal] = useState<{
-    [x: string]: any;
     id: string;
     GoalType: string;
     Goal: string;
+    [key: string]: any;
   } | null>(null);
-  const userPhoneNumber = "81228470";
+  const [userPhoneNumber, setUserPhoneNumber] = useState<string>("");
 
   const displayMessage = (text: string) => {
     setMessage(text);
     setTimeout(() => setMessage(""), 5000);
   };
+
+  // Retrieve phone number from AsyncStorage
+  useEffect(() => {
+    const getUserPhoneNumber = async () => {
+      try {
+        const storedPhone = await AsyncStorage.getItem("userPhoneNumber");
+        if (storedPhone) {
+          setUserPhoneNumber(storedPhone);
+        } else {
+          console.error("User phone number not found in AsyncStorage");
+        }
+      } catch (error) {
+        console.error("Error retrieving user phone number:", error);
+      }
+    };
+    getUserPhoneNumber();
+  }, []);
 
   const fetchGoals = async () => {
     setLoading(true);
@@ -33,7 +51,13 @@ export default function GoalChartScreen() {
       const response = await fetch(`${config.API_BASE_URL}/api/goals/${userPhoneNumber}`);
       if (response.ok) {
         const fetchedGoals = await response.json();
-        setGoals(fetchedGoals);
+        // Normalize the goal objects so each one has a lowercase "id" property.
+        const normalizedGoals = fetchedGoals.map((goal: any) => ({
+          id: goal.Id || goal.id,
+          GoalType: goal.GoalType,
+          Goal: goal.Goal,
+        }));
+        setGoals(normalizedGoals);
       } else {
         displayMessage("Failed to fetch goals.");
       }
@@ -44,6 +68,13 @@ export default function GoalChartScreen() {
       setLoading(false);
     }
   };
+
+  // Fetch goals once the phone number is available
+  useEffect(() => {
+    if (userPhoneNumber) {
+      fetchGoals();
+    }
+  }, [userPhoneNumber]);
 
   const addGoal = async () => {
     const goalTypeToSend = isCustomGoal ? customGoalType : newGoalType;
@@ -89,7 +120,7 @@ export default function GoalChartScreen() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${config.API_BASE_URL}/api/goals/${editingGoal.Id}`, {
+      const response = await fetch(`${config.API_BASE_URL}/api/goals/${editingGoal.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -117,11 +148,11 @@ export default function GoalChartScreen() {
     }
   };
 
-  const deleteGoal = async (goal: { [x: string]: any; id: string; GoalType: string; Goal: string }) => {
-    console.log("Deleting goal with ID:", goal.Id);
+  const deleteGoal = async (goal: { id: string; GoalType: string; Goal: string }) => {
+    console.log("Deleting goal with ID:", goal.id);
     setLoading(true);
     try {
-      const response = await fetch(`${config.API_BASE_URL}/api/goals/${goal.Id}`, {
+      const response = await fetch(`${config.API_BASE_URL}/api/goals/${goal.id}`, {
         method: "DELETE",
       });
 
@@ -142,12 +173,10 @@ export default function GoalChartScreen() {
   useEffect(() => {
     if (newGoalType === "Custom") {
       setIsCustomGoal(true);
+    } else {
+      setIsCustomGoal(false);
     }
   }, [newGoalType]);
-
-  useEffect(() => {
-    fetchGoals();
-  }, []);
 
   return (
     <ScrollView className="flex-1 bg-gray-100 p-6">
@@ -173,7 +202,7 @@ export default function GoalChartScreen() {
       ) : (
         <View className="bg-white p-4 rounded-lg shadow-md mb-6 items-center justify-center">
           <Text className="text-md font-semibold text-gray-600">
-            {loading ? <ActivityIndicator size="large" color="#4CAF50" /> : `No goals found. Set your first goal below!`}
+            {loading ? <ActivityIndicator size="large" color="#4CAF50" /> : "No goals found. Set your first goal below!"}
           </Text>
         </View>
       )}
@@ -197,12 +226,7 @@ export default function GoalChartScreen() {
 
         <TextInput className="w-full bg-gray-100 p-4 rounded-lg mb-4" placeholder="Enter Goal" value={newGoal} onChangeText={setNewGoal} />
 
-        <TouchableOpacity
-          className="bg-orange-800 p-4 rounded-lg shadow-md mb-4"
-          onPress={() => {
-            addGoal();
-          }}
-        >
+        <TouchableOpacity className="bg-orange-800 p-4 rounded-lg shadow-md mb-4" onPress={addGoal}>
           <Text className="text-center text-white font-bold">{isCustomGoal ? "Save Custom Goal" : "Add Goal"}</Text>
         </TouchableOpacity>
 
@@ -232,13 +256,13 @@ export default function GoalChartScreen() {
               className="w-full bg-gray-100 p-4 rounded-lg mb-4"
               placeholder="Goal Type"
               value={editingGoal?.GoalType || ""}
-              onChangeText={(text) => setEditingGoal((prev) => ({ ...prev, GoalType: text } as any))}
+              onChangeText={(text) => setEditingGoal((prev) => (prev ? { ...prev, GoalType: text } : prev))}
             />
             <TextInput
               className="w-full bg-gray-100 p-4 rounded-lg mb-4"
               placeholder="Goal"
               value={editingGoal?.Goal || ""}
-              onChangeText={(text) => setEditingGoal((prev) => ({ ...prev, Goal: text } as any))}
+              onChangeText={(text) => setEditingGoal((prev) => (prev ? { ...prev, Goal: text } : prev))}
             />
             <View className="flex-row justify-between mt-4">
               <TouchableOpacity className="bg-gray-400 p-4 rounded-lg flex-1 mr-2" onPress={() => setEditModalVisible(false)}>
