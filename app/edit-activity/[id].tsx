@@ -28,12 +28,10 @@ const commonExercises = [
 
 // Helper functions to sanitize input.
 const sanitizeNumeric = (text: string): string => {
-  // Allow only digits.
   return text.replace(/[^0-9]/g, "");
 };
 
 const sanitizeDecimal = (text: string): string => {
-  // Allow only digits and a single decimal point.
   let sanitized = text.replace(/[^0-9.]/g, "");
   const parts = sanitized.split(".");
   if (parts.length > 2) {
@@ -63,8 +61,8 @@ const EditActivity: React.FC = () => {
     exerciseType: "",
     durationMinutes: "",
     caloriesBurned: "",
-    intensity: "1", // default as string
-    rating: "1", // default as string
+    intensity: "1",
+    rating: "1",
     distanceFromHome: "",
   });
   const [selectedExercise, setSelectedExercise] = useState<string>("Other");
@@ -107,7 +105,6 @@ const EditActivity: React.FC = () => {
   };
 
   const handleUpdate = async (): Promise<void> => {
-    // Check that required fields are filled.
     const isFormValid = activity.exerciseType.trim() !== "" && activity.durationMinutes.trim() !== "" && activity.caloriesBurned.trim() !== "";
     if (!isFormValid) {
       displayMessage("Please complete all required fields before updating.");
@@ -164,7 +161,7 @@ const EditActivity: React.FC = () => {
     }
   };
 
-  // Function to call the calorie calculation endpoint.
+  // Function to trigger calorie calculation.
   const handleCalculateCalories = async (): Promise<void> => {
     if (
       activity.exerciseType.trim() === "" ||
@@ -203,14 +200,12 @@ const EditActivity: React.FC = () => {
     }
   };
 
-  // Validate if required fields are available for calorie calculation.
   const isValidForCalculation =
     activity.exerciseType.trim() !== "" &&
     activity.durationMinutes.trim() !== "" &&
     !isNaN(parseInt(activity.durationMinutes)) &&
     parseInt(activity.durationMinutes) > 0;
 
-  // Form is valid for update if exerciseType, durationMinutes, and caloriesBurned are filled.
   const isFormValid =
     activity.exerciseType.trim() !== "" &&
     activity.durationMinutes.trim() !== "" &&
@@ -226,53 +221,50 @@ const EditActivity: React.FC = () => {
         <ActivityIndicator size="large" color="#4CAF50" />
       ) : (
         <>
-          {/* Dropdown for common exercises */}
+          {/* Common Exercise Picker */}
           <View className="mb-3">
             <Text className="text-gray-700 mb-1">Select Common Exercise</Text>
-            <Picker
-              selectedValue={selectedExercise}
-              onValueChange={(itemValue) => {
-                setSelectedExercise(itemValue);
-                if (itemValue !== "Other") {
-                  setActivity((prev) => ({ ...prev, exerciseType: itemValue }));
-                }
-              }}
-            >
-              {commonExercises.map((exercise) => (
-                <Picker.Item label={exercise} value={exercise} key={exercise} />
-              ))}
-            </Picker>
+            <View className="border border-gray-300 rounded bg-white">
+              <Picker
+                selectedValue={selectedExercise}
+                onValueChange={(itemValue) => {
+                  setSelectedExercise(itemValue);
+                  if (itemValue !== "Other") {
+                    setActivity((prev) => ({ ...prev, exerciseType: itemValue }));
+                  }
+                }}
+              >
+                {commonExercises.map((exercise) => (
+                  <Picker.Item label={exercise} value={exercise} key={exercise} />
+                ))}
+              </Picker>
+            </View>
           </View>
 
-          {/* Custom input for exercise type */}
+          {/* Custom Exercise Input */}
           <View className="mb-3">
             <Text className="text-gray-700 mb-1">Exercise Type (or enter custom)</Text>
             <TextInput
               placeholder="Custom Exercise Type (if not in dropdown)"
               value={activity.exerciseType}
               onChangeText={(text) => setActivity((prev) => ({ ...prev, exerciseType: text }))}
-              className="border border-gray-300 rounded p-2"
+              className="border border-gray-300 rounded p-2 bg-white"
             />
           </View>
 
-          {/* Duration input with numeric sanitization */}
+          {/* Duration Input */}
           <View className="mb-3">
             <Text className="text-gray-700 mb-1">Duration (minutes)</Text>
             <TextInput
               placeholder="Duration (minutes)"
               value={activity.durationMinutes}
-              onChangeText={(text) =>
-                setActivity((prev) => ({
-                  ...prev,
-                  durationMinutes: sanitizeNumeric(text),
-                }))
-              }
+              onChangeText={(text) => setActivity((prev) => ({ ...prev, durationMinutes: sanitizeNumeric(text) }))}
               keyboardType="numeric"
-              className="border border-gray-300 rounded p-2"
+              className="border border-gray-300 rounded p-2 bg-white"
             />
           </View>
 
-          {/* Button to trigger calorie calculation */}
+          {/* Calculate Calories Button */}
           <TouchableOpacity
             className={`p-3 rounded mb-3 ${isValidForCalculation ? "bg-blue-600" : "bg-gray-400"}`}
             onPress={handleCalculateCalories}
@@ -281,7 +273,7 @@ const EditActivity: React.FC = () => {
             {loading ? <ActivityIndicator size="small" color="#fff" /> : <Text className="text-white text-center font-semibold">Calculate Calories</Text>}
           </TouchableOpacity>
 
-          {/* Calories Burned output */}
+          {/* Calories Burned Output */}
           <View className="mb-3">
             <Text className="text-gray-700 mb-1">Calories Burned</Text>
             <TextInput
@@ -318,32 +310,29 @@ const EditActivity: React.FC = () => {
             />
           </View>
 
-          {/* Distance input with decimal sanitization */}
+          {/* Distance Input */}
           <View className="mb-4">
             <Text className="text-gray-700 mb-1">Distance From Home</Text>
             <TextInput
               placeholder="Distance From Home"
               value={activity.distanceFromHome}
-              onChangeText={(text) =>
-                setActivity((prev) => ({
-                  ...prev,
-                  distanceFromHome: sanitizeDecimal(text),
-                }))
-              }
+              onChangeText={(text) => setActivity((prev) => ({ ...prev, distanceFromHome: sanitizeDecimal(text) }))}
               keyboardType="numeric"
-              className="border border-gray-300 rounded p-2"
+              className="border border-gray-300 rounded p-2 bg-white"
             />
           </View>
 
-          {/* Update Exercise button disabled if required fields are missing */}
+          {/* Update Exercise Button */}
           <TouchableOpacity className={`bg-green-600 p-3 rounded mb-2 ${!isFormValid ? "opacity-50" : ""}`} onPress={handleUpdate} disabled={!isFormValid}>
             {loading ? <ActivityIndicator size="small" color="#fff" /> : <Text className="text-white text-center font-semibold">Update Exercise</Text>}
           </TouchableOpacity>
 
+          {/* Delete Exercise Button */}
           <TouchableOpacity className="bg-red-600 p-3 rounded mb-2" onPress={handleDelete}>
             <Text className="text-white text-center font-semibold">Delete Exercise</Text>
           </TouchableOpacity>
 
+          {/* Cancel Button */}
           <TouchableOpacity className="bg-gray-400 p-3 rounded" onPress={() => router.push("/activities")}>
             <Text className="text-white text-center font-semibold">Cancel</Text>
           </TouchableOpacity>

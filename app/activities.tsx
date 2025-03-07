@@ -177,9 +177,6 @@ const Activities: React.FC = () => {
                   <Text className="text-sm text-gray-700">
                     Rating: <Text className="font-medium">{item.rating}/5</Text>
                   </Text>
-                  <Text className="text-sm text-gray-700">
-                    Distance: <Text className="font-medium">{item.distanceFromHome} km</Text>
-                  </Text>
                 </View>
               </View>
             </TouchableOpacity>
