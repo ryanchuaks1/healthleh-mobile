@@ -8,6 +8,8 @@ import config from "../config.js";
 import GoogleFit, { Scopes } from "react-native-google-fit";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
+import * as Notifications from "expo-notifications";
+import * as Linking from "expo-linking";
 
 export default function Home() {
   const [healthData, setHealthData] = useState({
@@ -15,7 +17,6 @@ export default function Home() {
     weight: "loading...",
     weightGoal: "loading...",
   });
-  // Removed separate "steps" state; we use dailyRecord.totalSteps instead.
   const [lastActivity, setLastActivity] = useState("Walked 2 km");
   const [devices, setDevices] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -43,6 +44,58 @@ export default function Home() {
     };
     getUserPhoneNumber();
   }, []);
+
+  // Register for push notifications and set up the notification response listener
+  useEffect(() => {
+    async function registerForPushNotifications() {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      if (existingStatus !== "granted") {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      if (finalStatus !== "granted") {
+        console.log("Permission not granted for notifications");
+        return;
+      }
+
+      let tokenData;
+      if (Platform.OS === "web") {
+        // For web, use getDevicePushTokenAsync to avoid CORS issues
+        tokenData = await Notifications.getDevicePushTokenAsync();
+      } else {
+        // For native apps, use getExpoPushTokenAsync with applicationId
+        tokenData = await Notifications.getExpoPushTokenAsync({
+          projectId: "4b3c3640-1bc1-4959-b3e4-a8e2395454b8",
+          applicationId: "com.ryanchuaks.healthleh",
+        });
+      }
+      const token = tokenData.data;
+      console.log("Push token:", token);
+      // Send token to your backend to register with Azure Notification Hub if needed.
+    }
+
+    registerForPushNotifications();
+
+    // Listener: when the user taps on a notification.
+    const responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
+      console.log("Notification tapped:", response);
+      // Check if a deep link URL was provided in the notification data.
+      const url = response.notification.request.content.data?.url;
+      if (url) {
+        Linking.openURL(url);
+      } else {
+        // If no URL, default to navigating to the Add Activity page.
+        router.push("/add-activity");
+      }
+    });
+
+    return () => {
+      Notifications.removeNotificationSubscription(responseListener);
+    };
+  }, []);
+
+  // ... rest of your code remains unchanged
 
   // Fetch user health data, weight goal, and last activity once phone number is available
   useEffect(() => {
@@ -281,7 +334,7 @@ export default function Home() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-gray-100 p-6">
+    <ScrollView className="flex-1 bg-gray-100 p-6 pt-24">
       {loading ? (
         <ActivityIndicator size="large" color="#4CAF50" />
       ) : (
