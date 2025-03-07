@@ -17,11 +17,23 @@ interface Activity {
   exerciseDate: string;
 }
 
+interface Goal {
+  id: number;
+  phoneNumber: string;
+  description: string;
+  target: string;
+  // add any other fields your goal has
+}
+
 const Activities: React.FC = () => {
   const [phoneNumber, setPhoneNumber] = useState<string | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<string>("");
+  const [opinion, setOpinion] = useState<{ activity_opinion: string; improvement_suggestions: string[] } | null>(null);
+  const [loadingOpinion, setLoadingOpinion] = useState<boolean>(false);
+  const [opinionFetched, setOpinionFetched] = useState<boolean>(false);
 
   const displayMessage = (text: string): void => {
     setMessage(text);
@@ -45,9 +57,12 @@ const Activities: React.FC = () => {
     getPhoneNumber();
   }, []);
 
-  // Fetch activities once phoneNumber is available
+  // Fetch activities and goals once phoneNumber is available
   useEffect(() => {
-    if (phoneNumber) fetchActivities();
+    if (phoneNumber) {
+      fetchActivities();
+      fetchGoals();
+    }
   }, [phoneNumber]);
 
   const fetchActivities = async (): Promise<void> => {
@@ -64,6 +79,18 @@ const Activities: React.FC = () => {
       displayMessage(`Error fetching activities: ${error.message}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fetch user goals
+  const fetchGoals = async (): Promise<void> => {
+    try {
+      const response = await fetch(`${config.API_BASE_URL}/api/goals/${phoneNumber}`);
+      if (!response.ok) throw new Error("Failed to fetch goals");
+      const data: Goal[] = await response.json();
+      setGoals(data);
+    } catch (error: any) {
+      displayMessage(`Error fetching goals: ${error.message}`);
     }
   };
 
@@ -91,24 +118,15 @@ const Activities: React.FC = () => {
     data: groupedActivities[dateKey],
   }));
 
-  // Home page already ensures the daily record exists, so we just send the update.
+  // Update daily record (existing functionality)
   useEffect(() => {
     if (!phoneNumber || activities.length === 0) return;
     const updateDailyRecord = async () => {
       for (const dateKey in groupedActivities) {
         const group = groupedActivities[dateKey];
-        // Sum calories burned and exercise duration from the group
         const totalCalories = group.reduce((sum, activity) => sum + activity.caloriesBurned, 0);
         const totalDuration = group.reduce((sum, activity) => sum + activity.durationMinutes, 0);
         const recordDate = new Date(Number(dateKey)).toISOString().split("T")[0];
-        // console.log(
-        //   "Updating record for",
-        //   recordDate,
-        //   "- Calories:",
-        //   totalCalories,
-        //   "Duration:",
-        //   totalDuration
-        // );
         try {
           const res = await fetch(`${config.API_BASE_URL}/api/dailyrecords/${phoneNumber}/${recordDate}`, {
             method: "PUT",
@@ -129,6 +147,64 @@ const Activities: React.FC = () => {
     updateDailyRecord();
   }, [phoneNumber, activities, groupedActivities]);
 
+  // New function: Call the activityOpinion endpoint with goals included
+  const fetchOpinion = async () => {
+    if (activities.length === 0) {
+      displayMessage("No activities available to analyze.");
+      return;
+    }
+    setLoadingOpinion(true);
+    try {
+      // Sort activities by date (latest first) and take up to 14 records
+      const sortedActivities = [...activities].sort((a, b) => new Date(b.exerciseDate).getTime() - new Date(a.exerciseDate).getTime());
+      const last14 = sortedActivities.slice(0, 14);
+      const last14Activities = last14.map((act) => act.exerciseType).join(", ");
+      const last14Ratings = last14.map((act) => act.rating).join(", ");
+      const last14Times = last14
+        .map((act) =>
+          new Date(act.exerciseDate).toLocaleTimeString("en-GB", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        )
+        .join(", ");
+
+      // Convert goals array to a descriptive string (adjust as needed)
+      const goalsDescription = goals.map((goal) => goal.description).join(", ");
+
+      const payload = {
+        last14Activities,
+        last14Ratings,
+        last14Times,
+        goals: goalsDescription,
+      };
+
+      const response = await fetch(`${config.API_AI_URL}/activityOpinion`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch activity opinion");
+      }
+      const data = await response.json();
+      setOpinion(data);
+    } catch (error: any) {
+      displayMessage(`Error fetching opinion: ${error.message}`);
+    } finally {
+      setLoadingOpinion(false);
+      setOpinionFetched(true);
+    }
+  };
+
+  // Automatically run fetchOpinion when activities (or goals) update and opinion hasn't been fetched yet
+  useEffect(() => {
+    if (activities.length > 0 && !opinionFetched) {
+      fetchOpinion();
+    }
+  }, [activities, opinionFetched]);
+
   return (
     <ScrollView className="flex-1 bg-gray-100 p-6">
       <Text className="text-3xl font-bold text-orange-800 mb-4">User Exercise Logging</Text>
@@ -141,8 +217,21 @@ const Activities: React.FC = () => {
         <Text className="text-center text-white font-bold">Back to Home</Text>
       </TouchableOpacity>
 
-      {loading && <ActivityIndicator size="large" color="#4CAF50" />}
+      {loadingOpinion && <ActivityIndicator size="large" color="#0000ff" />}
+      {opinion && (
+        <View className="my-4 p-4 bg-white rounded shadow">
+          <Text className="text-lg font-bold mb-2">Activity Opinion:</Text>
+          <Text className="mb-2">{opinion.activity_opinion}</Text>
+          <Text className="text-lg font-bold mb-2">Improvement Suggestions:</Text>
+          {opinion.improvement_suggestions.map((suggestion, index) => (
+            <Text key={index} className="mb-1">
+              - {suggestion}
+            </Text>
+          ))}
+        </View>
+      )}
 
+      {loading && <ActivityIndicator size="large" color="#4CAF50" />}
       <SectionList
         sections={sections}
         keyExtractor={(item) => item.id.toString()}
@@ -152,7 +241,6 @@ const Activities: React.FC = () => {
           </View>
         )}
         renderItem={({ item }) => {
-          // Display time using the device's local time
           const time = new Date(item.exerciseDate).toLocaleTimeString("en-GB", {
             hour: "2-digit",
             minute: "2-digit",
