@@ -8,8 +8,6 @@ import config from "../config.js";
 import GoogleFit, { Scopes } from "react-native-google-fit";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
-import * as Notifications from "expo-notifications";
-import * as Linking from "expo-linking";
 
 export default function Home() {
   const [healthData, setHealthData] = useState({
@@ -44,58 +42,6 @@ export default function Home() {
     };
     getUserPhoneNumber();
   }, []);
-
-  // Register for push notifications and set up the notification response listener
-  useEffect(() => {
-    async function registerForPushNotifications() {
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
-      if (existingStatus !== "granted") {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-      if (finalStatus !== "granted") {
-        console.log("Permission not granted for notifications");
-        return;
-      }
-
-      let tokenData;
-      if (Platform.OS === "web") {
-        // For web, use getDevicePushTokenAsync to avoid CORS issues
-        tokenData = await Notifications.getDevicePushTokenAsync();
-      } else {
-        // For native apps, use getExpoPushTokenAsync with applicationId
-        tokenData = await Notifications.getExpoPushTokenAsync({
-          projectId: "4b3c3640-1bc1-4959-b3e4-a8e2395454b8",
-          applicationId: "com.ryanchuaks.healthleh",
-        });
-      }
-      const token = tokenData.data;
-      console.log("Push token:", token);
-      // Send token to your backend to register with Azure Notification Hub if needed.
-    }
-
-    registerForPushNotifications();
-
-    // Listener: when the user taps on a notification.
-    const responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
-      console.log("Notification tapped:", response);
-      // Check if a deep link URL was provided in the notification data.
-      const url = response.notification.request.content.data?.url;
-      if (url) {
-        Linking.openURL(url);
-      } else {
-        // If no URL, default to navigating to the Add Activity page.
-        router.push("/add-activity");
-      }
-    });
-
-    return () => {
-      Notifications.removeNotificationSubscription(responseListener);
-    };
-  }, []);
-
-  // ... rest of your code remains unchanged
 
   // Fetch user health data, weight goal, and last activity once phone number is available
   useEffect(() => {
@@ -231,6 +177,7 @@ export default function Home() {
   // For Android: Fetch steps from Google Fit once on page load
   useEffect(() => {
     if (Platform.OS !== "web" && userPhoneNumber) {
+      console.log("Checking Google Fit steps for user:", userPhoneNumber);
       const options = {
         scopes: [Scopes.FITNESS_ACTIVITY_READ, Scopes.FITNESS_ACTIVITY_WRITE],
       };
@@ -242,22 +189,19 @@ export default function Home() {
         };
         GoogleFit.getDailyStepCountSamples(stepOptions)
           .then((res) => {
+            console.log("Google Fit steps data:", res);
             const stepsSample = res.find((sample) => sample.source === "com.google.android.gms:estimated_steps" || sample.source === "estimated_steps");
             if (stepsSample && stepsSample.steps.length > 0) {
               const todaySteps = stepsSample.steps.reduce((total, stepEntry) => total + (stepEntry.value || 0), 0);
-              // Update the daily record with the fetched steps
               const todayDate = new Date().toISOString().split("T")[0];
               fetch(`${config.API_BASE_URL}/api/dailyrecords/${userPhoneNumber}/${todayDate}`, {
                 method: "PUT",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  totalSteps: todaySteps,
-                }),
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ totalSteps: todaySteps }),
               })
                 .then((response) => response.json())
                 .then((data) => {
+                  console.log("Daily record updated with steps:", data);
                   setDailyRecord(data);
                 })
                 .catch((err) => {
@@ -268,28 +212,36 @@ export default function Home() {
             }
           })
           .catch((err) => {
-            console.log("Error fetching steps data: ", err);
+            console.log("Error fetching steps data:", err);
           });
       };
 
-      GoogleFit.checkIsAuthorized().then(() => {
-        if (!GoogleFit.isAuthorized) {
-          GoogleFit.authorize(options)
-            .then((authResult) => {
-              if (authResult.success) {
-                console.log("Google Fit authorization success");
-                fetchSteps();
-              } else {
-                console.log("Google Fit authorization denied", authResult.message);
-              }
-            })
-            .catch(() => {
-              console.log("Google Fit authorization error");
-            });
-        } else {
-          fetchSteps();
-        }
-      });
+      // Add logging to check authorization
+      GoogleFit.checkIsAuthorized()
+        .then((authorized) => {
+          console.log("GoogleFit.checkIsAuthorized result:", authorized);
+          if (!GoogleFit.isAuthorized) {
+            GoogleFit.authorize(options)
+              .then((authResult) => {
+                console.log("GoogleFit.authorize result:", authResult);
+                if (authResult.success) {
+                  console.log("Google Fit authorization success");
+                  fetchSteps();
+                } else {
+                  console.log("Google Fit authorization denied", authResult.message);
+                }
+              })
+              .catch((err) => {
+                console.log("Google Fit authorization error:", err);
+              });
+          } else {
+            console.log("Already authorized");
+            fetchSteps();
+          }
+        })
+        .catch((err) => {
+          console.log("Error in GoogleFit.checkIsAuthorized:", err);
+        });
     }
   }, [userPhoneNumber]);
 
@@ -334,7 +286,7 @@ export default function Home() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-gray-100 p-6 pt-24">
+    <ScrollView className="flex-1 bg-gray-100 p-6 pt-16">
       {loading ? (
         <ActivityIndicator size="large" color="#4CAF50" />
       ) : (
@@ -347,7 +299,7 @@ export default function Home() {
           />
           <GoalBarSection currentWeight={healthData.weight} weightGoal={healthData.weightGoal} />
           <DeviceSection devices={devices} />
-          <TouchableOpacity className="bg-red-500 p-4 rounded-lg mt-4" onPress={handleLogout}>
+          <TouchableOpacity className="bg-red-500 p-4 rounded-lg mt-4 mb-24" onPress={handleLogout}>
             <Text className="text-center text-white font-bold">Log Out</Text>
           </TouchableOpacity>
         </View>

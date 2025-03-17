@@ -1,23 +1,8 @@
-self.addEventListener("push", (event) => {
-  let text;
-  try {
-    text = event.data.text();
-    console.log("Push event received:", text);
-    const data = JSON.parse(text);
-    event.waitUntil(
-      self.registration.showNotification(data.title, {
-        body: data.body,
-        icon: data.icon || "/favicon.png",
-      })
-    );
-  } catch (error) {
-    console.error("Error parsing push data:", error);
-    // Fallback notification if payload is not in JSON format
-    event.waitUntil(
-      self.registration.showNotification("Notification", {
-        body: text || "You have a new notification.",
-        icon: "/favicon.png",
-      })
-    );
-  }
+// sw.js (place in your public/ folder)
+self.addEventListener('push', (event) => {
+  const data = event.data ? event.data.json() : { title: 'Notification', body: 'You have a new message.' };
+  self.registration.showNotification(data.title, {
+    body: data.body,
+    icon: data.icon || '/icon.png',
+  });
 });

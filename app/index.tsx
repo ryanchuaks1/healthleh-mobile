@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Image, Dimensions } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Image, Dimensions, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import config from "../config";
 import OTPInput from "../components/OTPInput";
+import { registerForPushNotificationsAsync } from "./utils/notifications";
 
 const Login: React.FC = () => {
   const [phoneNumber, setPhoneNumber] = useState<string>("");
@@ -29,22 +30,34 @@ const Login: React.FC = () => {
       setMessage("Invalid OTP. Please try again.");
       return;
     }
-
     setLoading(true);
     setMessage("Verifying OTP...");
     try {
       const url = `${config.API_BASE_URL}/api/users/${phoneNumber}`;
       const response = await fetch(url, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
       });
       setLoading(false);
       if (response.ok) {
-        // Store the phone number in AsyncStorage as session token
+        // Store the phone number as a session token
         await AsyncStorage.setItem("userPhoneNumber", phoneNumber);
         setMessage("Login successful!");
+
+        // Register for push notifications (this returns a token/subscription)
+        const pushTokenOrSubscription = await registerForPushNotificationsAsync();
+        if (pushTokenOrSubscription) {
+          // Send the token/subscription to your backend
+          await fetch(`${config.API_BASE_URL}/api/registerPush`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              pushToken: pushTokenOrSubscription,
+              userId: phoneNumber,
+              platform: Platform.OS, // "ios", "android", or "web"
+            }),
+          });
+        }
         setTimeout(() => router.push("/home"), 1000);
       } else {
         if (response.status === 404) {
