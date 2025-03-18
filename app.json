@@ -18,9 +18,10 @@
       "supportsTablet": true
     },
     "android": {
+      "googleServicesFile": "./path/to/google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#ffffff" 
       },
       "permissions": [
         "android.permission.BLUETOOTH",
@@ -60,6 +61,14 @@
     "experiments": {
       "typedRoutes": true
     },
-    "owner": "ryanchuaks"
+    "owner": "ryanchuaks",
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "4b3c3640-1bc1-4959-b3e4-a8e2395454b8"
+      }
+    }
   }
 }
