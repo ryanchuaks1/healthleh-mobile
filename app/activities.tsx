@@ -18,6 +18,8 @@ interface Activity {
 }
 
 interface Goal {
+  Goal: any;
+  GoalType: any;
   id: number;
   phoneNumber: string;
   description: string;
@@ -88,6 +90,7 @@ const Activities: React.FC = () => {
       const response = await fetch(`${config.API_BASE_URL}/api/goals/${phoneNumber}`);
       if (!response.ok) throw new Error("Failed to fetch goals");
       const data: Goal[] = await response.json();
+      console.log("Goals fetched:", data);
       setGoals(data);
     } catch (error: any) {
       displayMessage(`Error fetching goals: ${error.message}`);
@@ -170,13 +173,15 @@ const Activities: React.FC = () => {
         .join(", ");
 
       // Convert goals array to a descriptive string (adjust as needed)
-      const goalsDescription = goals.map((goal) => goal.description).join(", ");
+      console.log("Goals:", goals);
+      const goalsString = goals.map((goal) => `${goal.GoalType}: ${goal.Goal}`).join(", ");
+      console.log("Goals string:", goalsString);
 
       const payload = {
         last14Activities,
         last14Ratings,
         last14Times,
-        goals: goalsDescription,
+        goals: goalsString, // use the string here
       };
 
       const response = await fetch(`${config.API_AI_URL}/activityOpinion`, {
@@ -200,17 +205,16 @@ const Activities: React.FC = () => {
 
   // Automatically run fetchOpinion when activities (or goals) update and opinion hasn't been fetched yet
   useEffect(() => {
-    if (activities.length > 0 && !opinionFetched) {
+    if (activities.length > 0 && !opinionFetched && goals.length > 0) {
       fetchOpinion();
     }
-  }, [activities, opinionFetched]);
+  }, [activities, opinionFetched, goals]);
 
   return (
     <ScrollView className="flex-1 bg-gray-100 p-6">
       <Text className="text-3xl font-bold text-orange-800 mb-4">User Exercise Logging</Text>
       {message !== "" && <Text className="text-center text-red-500 mb-4">{message}</Text>}
-
-      <TouchableOpacity className="bg-orange-800 p-3 rounded-lg shadow-md my-1" onPress={() => router.push("/add-activity")}>
+      <TouchableOpacity className="bg-orange-800 p-3 rounded-lg shadow-md my-1" onPress={() => router.push("/exercise-selection")}>
         <Text className="text-center text-white font-bold">Add Exercise</Text>
       </TouchableOpacity>
       <TouchableOpacity className="bg-slate-600 p-3 rounded-lg shadow-md my-1" onPress={() => router.push("/home")}>

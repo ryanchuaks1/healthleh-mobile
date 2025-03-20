@@ -8,6 +8,7 @@ import config from "../config.js";
 import GoogleFit, { Scopes } from "react-native-google-fit";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
+import { Pedometer } from "expo-sensors";
 
 export default function Home() {
   const [healthData, setHealthData] = useState({
@@ -242,6 +243,47 @@ export default function Home() {
         .catch((err) => {
           console.log("Error in GoogleFit.checkIsAuthorized:", err);
         });
+    }
+  }, [userPhoneNumber]);
+
+  // For Android (and iOS), track steps directly from the phone's built-in sensor using Expo's Pedometer
+  useEffect(() => {
+    if (Platform.OS !== "web" && userPhoneNumber) {
+      let subscription: any;
+      const subscribe = async () => {
+        const isAvailable = await Pedometer.isAvailableAsync();
+        console.log("Pedometer available:", isAvailable);
+        if (isAvailable) {
+          subscription = Pedometer.watchStepCount((result: { steps: number; }) => {
+            console.log("Phone sensor steps data:", result.steps);
+            // Update our stepsRef with the latest step count
+            stepsRef.current = result.steps;
+            const todayDate = new Date().toISOString().split("T")[0];
+            // Update the daily record with the new step count from the phone sensor
+            console.log("Updating daily record with phone sensor steps:", stepsRef.current);
+            fetch(`${config.API_BASE_URL}/api/dailyrecords/${userPhoneNumber}/${todayDate}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ totalSteps: stepsRef.current }),
+            })
+              .then((response) => response.json())
+              .then((data) => {
+                console.log("Daily record updated with phone sensor steps:", data);
+                setDailyRecord(data);
+              })
+              .catch((err) => {
+                console.log("Error updating daily record from phone sensor:", err);
+              });
+          });
+        } else {
+          console.log("Pedometer is not available on this device");
+        }
+      };
+
+      subscribe();
+      return () => {
+        if (subscription) subscription.remove();
+      };
     }
   }, [userPhoneNumber]);
 
