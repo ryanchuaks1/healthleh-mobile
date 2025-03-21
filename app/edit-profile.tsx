@@ -15,6 +15,7 @@ export default function EditProfile(): JSX.Element {
   const [postalCode, setPostalCode] = useState<string>("");
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
+  const [streetName, setStreetName] = useState<string>(""); // New state for street name
   const [message, setMessage] = useState<string>("");
   const [messageType, setMessageType] = useState<"success" | "error">("success");
 
@@ -35,6 +36,9 @@ export default function EditProfile(): JSX.Element {
             // If your API returns postal code or location details, set them here.
             setLatitude(data.Latitude || null);
             setLongitude(data.Longitude || null);
+            // Optionally, you could set postalCode and streetName if provided:
+            // setPostalCode(data.PostalCode || "");
+            // setStreetName(data.StreetName || "");
           } else {
             setMessage("Failed to fetch profile.");
             setMessageType("error");
@@ -68,6 +72,7 @@ export default function EditProfile(): JSX.Element {
         const result = data.results[0];
         setLatitude(result.geometry.lat);
         setLongitude(result.geometry.lng);
+        setStreetName(result.formatted || "Address not found"); // Set street name
         setMessage("Location updated!");
         setMessageType("success");
       } else {
@@ -110,7 +115,8 @@ export default function EditProfile(): JSX.Element {
           weight: parseFloat(weight),
           latitude,
           longitude,
-          // streetName is removed from the flow.
+          // Optionally include streetName if your API requires it:
+          // streetName,
         }),
       });
       if (response.ok) {
@@ -179,6 +185,9 @@ export default function EditProfile(): JSX.Element {
             onChangeText={setPostalCode}
             placeholderTextColor="#A0AEC0"
           />
+          {streetName ? (
+            <Text className="mb-4 text-gray-700">Address: {streetName}</Text>
+          ) : null}
           <TouchableOpacity
             className="w-full bg-blue-500 p-4 rounded-lg mb-4"
             onPress={handleUpdateProfile}
