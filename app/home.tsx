@@ -116,7 +116,7 @@ export default function Home() {
             fetchedDevices.map((device: { DeviceId: any; DeviceName: any; Mode: string }) => ({
               id: device.DeviceId || `device-${Math.random()}`,
               name: device.DeviceName || "Unnamed Device",
-              status: device.Mode === "Input" ? "Active" : "Inactive",
+              status: device.Mode,
             }))
           );
         }
